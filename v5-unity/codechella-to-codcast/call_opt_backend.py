@@ -48,13 +48,13 @@ def call_opt_backend(myAppState, useBackupUrl=False):
     url = pyToUrl[py]
     if py in ('2', '3'):
         #mainUrl = 'http://localhost:8003/' + url
-        mainUrl = 'http://pythontutor.com/' + url
+        mainUrl = f'http://pythontutor.com/{url}'
         backupUrl = None
     else:
         assert py in ('c', 'cpp', 'ruby', 'js', 'ts', 'java')
-        mainUrl = 'http://cokapi.com/' + url
+        mainUrl = f'http://cokapi.com/{url}'
         # backup cokapi server in case my primary one is too busy at the moment
-        backupUrl = 'http://45.33.41.179/' + url
+        backupUrl = f'http://45.33.41.179/{url}'
 
     myParams = {'user_script': myAppState['code'],
                 'raw_input_json': myAppState['rawInputLstJSON'],
@@ -64,8 +64,8 @@ def call_opt_backend(myAppState, useBackupUrl=False):
                                 'show_only_outputs': False,
                                 'origin': 'call_opt_backend.py'})
                }
-    if useBackupUrl and backupUrl:
-        r = requests.get(backupUrl, params=myParams)
-    else:
-        r = requests.get(mainUrl, params=myParams)
-    return r
+    return (
+        requests.get(backupUrl, params=myParams)
+        if useBackupUrl and backupUrl
+        else requests.get(mainUrl, params=myParams)
+    )

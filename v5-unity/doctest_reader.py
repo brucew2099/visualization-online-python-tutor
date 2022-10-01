@@ -14,18 +14,21 @@ import json
 import traceback
 
 def encode_doctest(t):
-    encoded_test = {}
-    encoded_test['docstring'] = t.docstring
-    encoded_test['name'] = t.name
-    encoded_test['filename'] = t.filename
     encoded_examples = []
-    encoded_test['examples'] = encoded_examples
-    for e in t.examples:
-        encoded_examples.append(
-            dict(source=e.source,
-                 want=e.want,
-                 options=e.options,
-                 exc_msg=e.exc_msg))
+    encoded_test = {
+        'docstring': t.docstring,
+        'name': t.name,
+        'filename': t.filename,
+        'examples': encoded_examples,
+    }
+
+    encoded_examples.extend(
+        dict(
+            source=e.source, want=e.want, options=e.options, exc_msg=e.exc_msg
+        )
+        for e in t.examples
+    )
+
     return encoded_test
 
 

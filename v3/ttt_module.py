@@ -15,24 +15,25 @@ if False:
     "Set (or append??) CSS to be text."
     global __CSS__
     __CSS__ = text
-    print('setCSS: ' + text)
+    print(f'setCSS: {text}')
 
   def setHTML(text):
     "Set (or append??) HTML to be text."
     global __HTML__
     __HTML__ = text
-    print('setHTML: ' + text)
+    print(f'setHTML: {text}')
 
 
 def tagger(tagname):
-    "Make a function that can be used to generate HTML."
-    def tagfn(*content, **kwargs):
-        args = ('' if not kwargs else
-                ' ' + ' '.join('{}={!r}'.format(k, kwargs[k]) for k in kwargs))
-        return "<{}{}>{}</{}>".format(
-               tagname, args, join(content), tagname)
-    #tagfn.__name__ = tagname # not allowed in OPT sandbox
-    return tagfn
+  "Make a function that can be used to generate HTML."
+  def tagfn(*content, **kwargs):
+    args = (' ' + ' '.join('{}={!r}'.format(k, kwargs[k])
+                           for k in kwargs) if kwargs else '')
+    return "<{}{}>{}</{}>".format(
+           tagname, args, join(content), tagname)
+
+  #tagfn.__name__ = tagname # not allowed in OPT sandbox
+  return tagfn
 
 A, B, I, P, TABLE, TR, TD, TH = map(tagger, 'A B I P, TABLE TR TD TH'.split())
 
@@ -92,43 +93,43 @@ class TTTGame(Game):
 
 
     def draw(self):
-        setCSS(css)
-        s = table([[self.board[3*r + c] for c in range(3)] for r in range(3)])
-        if self.over():
-          s += P('Game over; ', 'nobody' if self.winner is None else self.symbols[self.winner], ' wins')
-        else:
-          s +=  P(self.symbols[self.tomove] + ' to play')
-        if self.verbose: print(s)
-        setHTML(s)
-        return s
+      setCSS(css)
+      s = table([[self.board[3*r + c] for c in range(3)] for r in range(3)])
+      if self.over():
+        s += P('Game over; ', 'nobody' if self.winner is None else self.symbols[self.winner], ' wins')
+      else:
+        s += P(f'{self.symbols[self.tomove]} to play')
+      if self.verbose: print(s)
+      setHTML(s)
+      return s
 
     def play(self):
       self.draw()
       #while not self.over():
-      for i in range(2):
+      for _ in range(2):
         p = self.tomove
         move = self.players[p](list(self.board), self.symbols[p])
         self.makemove(move)
         self.draw()
 
     def displayWarning(self, msg):
-      print('WARNING! ' + msg)
+      print(f'WARNING! {msg}')
 
     def makemove(self, move):
-        player = self.tomove
-        print('making move ' + str(move) + ' for player ' + str(player))
-        if self.over():
-            self.displayWarning('game over, no more moves')
-        elif move not in range(9):
-            self.displayWarning('not a legal square ' + str(move))
-            return None
-        elif self.board[move] != ' ':
-            self.displayWarning('not an empty square ' + str(move))
-            return None
-        else:
-            self.board[move] = self.symbols[player]
-            self.tomove = other(player)
-            return move
+      player = self.tomove
+      print(f'making move {str(move)} for player {str(player)}')
+      if self.over():
+        self.displayWarning('game over, no more moves')
+      elif move not in range(9):
+        self.displayWarning(f'not a legal square {str(move)}')
+        return None
+      elif self.board[move] != ' ':
+        self.displayWarning(f'not an empty square {str(move)}')
+        return None
+      else:
+        self.board[move] = self.symbols[player]
+        self.tomove = other(player)
+        return move
 
     def legal(self, move):
         "A legal move is an index to a blank square."

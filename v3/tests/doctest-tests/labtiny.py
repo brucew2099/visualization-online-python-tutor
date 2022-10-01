@@ -37,6 +37,6 @@ def slow_multiply(a, b):
 
     i = 0
     prod = 0
-    for i in range(b):
+    for _ in range(b):
         prod = add(prod, a)
     return prod

@@ -8,7 +8,7 @@ class Staff601:
     room = 501
 
     def salutation(self):
-        return self.role + ' ' + self.name
+        return f'{self.role} {self.name}'
 
 pat = Staff601()
 print pat.course

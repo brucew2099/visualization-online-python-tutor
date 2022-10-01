@@ -18,7 +18,7 @@ class Prof601(Staff601):
         self.giveRaise((age - 18) * 0.03)
 
     def salutation(self):
-        return self.role + ' ' + self.name
+        return f'{self.role} {self.name}'
 
 pat = Prof601('Pat', 60)
 

@@ -47,8 +47,7 @@ def filter_output(lines):
   # multi-line comparison
   fullstr = ''.join(x) # don't need an extra newline since all lines are already separated by newline chars
   fullstr = objrefid_RE.sub('"REF", ID', fullstr)
-  ret = fullstr.split('\n') # split again to get a list of lines
-  return ret
+  return fullstr.split('\n')
 
 
 def execute(input_filename):

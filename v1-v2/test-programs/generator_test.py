@@ -1,3 +1,3 @@
-x = (e for e in range(10))
+x = iter(range(10))
 y = x
-z = (e for e in range(10))
+z = iter(range(10))

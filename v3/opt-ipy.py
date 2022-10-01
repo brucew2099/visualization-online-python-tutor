@@ -124,7 +124,7 @@ class OptHistory(object):
         if epic_fail:
             self.pop_last()
 
-        urlopen(SERVER_ADDR + 'wholetrace', json_output.encode())
+        urlopen(f'{SERVER_ADDR}wholetrace', json_output.encode())
 
 
 # called right before a statement gets executed
@@ -166,7 +166,7 @@ def opt_clear(self, params):
 
     ip.meta.opt_history = OptHistory() # just create a new one!
 
-    urlopen(SERVER_ADDR + 'clear', 'blub'.encode()) # need a non-empty POST body
+    urlopen(f'{SERVER_ADDR}clear', 'blub'.encode())
 
 
 def load_ipython_extension(ipython):

@@ -71,7 +71,7 @@ def web_finalizer(output_lst):
       #  this directory for logging to work properly)
       if len(output_lst):
         evt = output_lst[-1]['event']
-        if evt == 'exception' or evt == 'uncaught_exception':
+        if evt in ['exception', 'uncaught_exception']:
           had_error = True
 
       (con, cur) = db_common.db_connect()
@@ -87,10 +87,16 @@ def web_finalizer(output_lst):
       # haha this is bad form, but silently fail on error :)
       pass
 
+  # use compactly=False to produce human-readable JSON,
+  # except at the expense of being a LARGER download
+  output_json = json.dumps(output_lst)
+
+  # use compactly=False to produce human-readable JSON,
+  # except at the expense of being a LARGER download
+  output_json = json.dumps(output_lst)
+
   # Crucial first line to make sure that Apache serves this data
   # correctly - DON'T FORGET THE EXTRA NEWLINES!!!:
-  print "Content-type: text/plain; charset=iso-8859-1\n\n"
-  print output_json
 
 
 form = cgi.FieldStorage()

@@ -10,12 +10,11 @@ class watchedlist(list):
     """A class that wraps a list, and monitors sets and gets.  
     Optionally monitors local variables."""
     def __setitem__(self, i, val):
-        print('setting A[{}] = {}'.format(i, val))
+        print(f'setting A[{i}] = {val}')
         self.watchlocals()
         return list.__setitem__(self, i, val)
     def __getitem__(self, i):
-        print('fetching A[{}]; value is {};'.format(
-          self, i, list.__getitem__(self, i)))
+        print(f'fetching A[{self}]; value is {i};')
         self.watchlocals()
         return list.__getitem__(self, i)
         
@@ -23,8 +22,7 @@ class watchedlist(list):
         if hasattr(self, 'watchedlocals'):
             #D = inspect.stack()[2][0].f_locals # old and really slow!
             D = sys._getframe(2).f_locals
-            print('    watched locals: {}'.format(
-                   {var: D[var] for var in self.watchedlocals}))
+            print(f'    watched locals: {{var: D[var] for var in self.watchedlocals}}')
         
         
 def watch(object, watchedspec):

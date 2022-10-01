@@ -3,10 +3,7 @@
 # http://mit.edu/6.01/mercurial/spring10/www/handouts/readings.pdf
 
 def map(func, lst):
-  if lst == []:
-    return []
-  else:
-    return [func(lst[0])] + map(func, lst[1:])
+  return [] if lst == [] else [func(lst[0])] + map(func, lst[1:])
 
 def halveElements(lst):
   return map(lambda x: x / 2.0, lst)

@@ -1,6 +1,6 @@
 x = 0
-for i in range(10):
+for _ in range(10):
   x += 1
-   print x
+  x += 1
   x += 1
 

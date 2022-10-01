@@ -61,9 +61,7 @@ def process_record(lines):
             err_lines.append(e)
         elif e.startswith('STDOUT: '):
             stdout_lines.append(e)
-        elif e.startswith('MAX_STEPS_EXCEEDED'):
-            pass # oof
-        else:
+        elif not e.startswith('MAX_STEPS_EXCEEDED'):
             regular_lines.append(e)
 
     rec = '\n'.join(regular_lines)
@@ -90,9 +88,7 @@ def process_record(lines):
     all_execution_points.append(x)
     # it's a good idea to fail-fast on first exception since it's
     # pedagogically bad to keep executing despite errors
-    if x['event'] == 'exception':
-        return False
-    return True
+    return x['event'] != 'exception'
 
 
 def process_json_obj(obj, err_str, stdout_str):
@@ -104,24 +100,19 @@ def process_json_obj(obj, err_str, stdout_str):
     obj['stack'].reverse() # make the stack grow down to follow convention
     top_stack_entry = obj['stack'][-1]
 
-    # create an execution point object
-    ret = {}
-
     heap = {}
     stack = []
     enc_globals = {}
-    ret['heap'] = heap
-    ret['stack_to_render'] = stack
-    ret['globals'] = enc_globals
-
-    # sometimes there are no globals in a trace
-    if 'ordered_globals' in obj:
-        ret['ordered_globals'] = obj['ordered_globals']
-    else:
-        ret['ordered_globals'] = []
-
-    ret['line'] = obj['line']
-    ret['func_name'] = top_stack_entry['func_name'] # use the 'topmost' entry's name
+    ret = {
+        'heap': heap,
+        'stack_to_render': stack,
+        'globals': enc_globals,
+        'ordered_globals': obj['ordered_globals']
+        if 'ordered_globals' in obj
+        else [],
+        'line': obj['line'],
+        'func_name': top_stack_entry['func_name'],
+    }
 
     if err_str:
         ret['event'] = 'exception'
@@ -195,16 +186,11 @@ def encode_value(obj, heap):
         # backwards compatibility for old 1-D array format:
         if 'dimensions' not in obj or len(obj['dimensions']) < 2:
             ret = ['C_ARRAY', obj['addr']]
-            for e in obj['val']:
-                ret.append(encode_value(e, heap)) # TODO: is an infinite loop possible here?
-            return ret
         else:
             # put dimensions as the 3rd element:
             ret = ['C_MULTIDIMENSIONAL_ARRAY', obj['addr'], obj['dimensions']]
-            for e in obj['val']:
-                ret.append(encode_value(e, heap)) # TODO: is an infinite loop possible here?
-            return ret
-
+        ret.extend(encode_value(e, heap) for e in obj['val'])
+        return ret
     elif obj['kind'] == 'typedef':
         # pass on the typedef type name into obj['val'], then recurse
         obj['val']['type'] = obj['type']
@@ -213,10 +199,9 @@ def encode_value(obj, heap):
     elif obj['kind'] == 'heap_block':
         assert obj['addr'] not in heap
         new_elt = ['C_ARRAY', obj['addr']]
-        for e in obj['val']:
-            new_elt.append(encode_value(e, heap)) # TODO: is an infinite loop possible here?
+        new_elt.extend(encode_value(e, heap) for e in obj['val'])
         heap[obj['addr']] = new_elt
-        # TODO: what about heap-to-heap pointers?
+            # TODO: what about heap-to-heap pointers?
 
     else:
         assert False

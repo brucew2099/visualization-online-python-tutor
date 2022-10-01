@@ -55,7 +55,7 @@ def factorial(n):
     OverflowError: n too large
     """
     import math
-    if not n >= 0:
+    if n < 0:
         raise ValueError("n must be >= 0")
     if math.floor(n) != n:
         raise ValueError("n must be exact integer")
@@ -97,7 +97,7 @@ def slow_multiply(a, b):
 
     i = 0
     prod = 0
-    for i in range(b):
+    for _ in range(b):
         prod = add(prod, a)
     return prod
 

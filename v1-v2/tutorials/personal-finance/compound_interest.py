@@ -7,8 +7,8 @@ yearsToBorrow = 10
 # output:
 amountOwed = amountBorrowed
 
-for i in range(yearsToBorrow):
+for _ in range(yearsToBorrow):
   currentYear = currentYear + 1
   amountOwed = amountOwed + (amountOwed * annualRate)
-  print "Year:", currentYear, "| Amount owed:", round(amountOwed, 2)
+  currentYear = currentYear + 1
 

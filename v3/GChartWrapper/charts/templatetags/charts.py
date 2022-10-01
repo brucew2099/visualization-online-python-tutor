@@ -75,27 +75,27 @@ class ChartNode(Node):
         for t in self.tokens:
             try:
                 args.append(resolve_variable(t,context))
-            except:        
+            except:
                 try:
                     args.append(float(t))
                 except:
                     arg = str(t)
-                    if arg.find('=')>-1:
+                    if '=' in arg:
                         k,v = arg.split('=')[:2]
                         kwargs[k] = v
                     else:
-                        args.append(arg)   
+                        args.append(arg)
         if len(args) == 1 and type(args[0]) in map(type,[[],()]):
-            args = args[0]   
+            args = args[0]
         if self.type in dir(GChartWrapper):
             chart = getattr(GChartWrapper,self.type)(args,**kwargs)
         elif self.type in GChartWrapper.constants.TYPES:
             chart = GChartWrapper.GChart(self.type,args,**kwargs)
         else:
-            raise TypeError('Chart type %s not recognized'%self.type)
+            raise TypeError(f'Chart type {self.type} not recognized')
         imgkwargs = {}
         for n in self.nodelist:
-            rend = n.render(context)           
+            rend = n.render(context)
             if type(rend) == type([]):
                 if rend[0] == 'img':
                     for k,v in map(lambda x: x.split('='), rend[1:]):
@@ -103,20 +103,16 @@ class ChartNode(Node):
                     continue
                 if rend[0] == 'axes':
                     getattr(getattr(chart, rend[0]), rend[1])(*rend[2:])
+                elif isinstance(rend[1], (list, tuple)):
+                    getattr(chart, rend[0])(*rend[1])
                 else:
-                    if isinstance(rend[1], list) or isinstance(rend[1], tuple):
-                        getattr(chart, rend[0])(*rend[1])
-                    else:
-                        getattr(chart, rend[0])(*rend[1:])
-        if self.mode:
-            if self.mode == 'img':  
-                return chart.img(**imgkwargs)
-            elif self.mode == 'url':  
-                return str(chart)
-            else:  
-                context[self.mode] = chart
-        else:
+                    getattr(chart, rend[0])(*rend[1:])
+        if self.mode and self.mode == 'img' or not self.mode:  
             return chart.img(**imgkwargs)
+        elif self.mode == 'url':  
+            return str(chart)
+        else:  
+            context[self.mode] = chart
 
 def make_chart(parser, token):
     nodelist = parser.parse(('endchart',))
@@ -137,15 +133,14 @@ class FancyNode(GenericNode):
         for n,arg in enumerate(self.args):
             self.args[n] = arg.replace('\\n','\n').replace('\\r','\r')
         G = self.cls(*self.args)
-        if mode:
-            if mode == 'img':  
-                return G.img()
-            if mode == 'url':  
-                return str(G)
-            else:  
-                context[mode] = G
-        else:
+        if not mode:
             return G.img()
+        if mode == 'img':  
+            return G.img()
+        if mode == 'url':  
+            return str(G)
+        else:  
+            context[mode] = G
         
 class NoteNode(FancyNode):
     cls = GChartWrapper.Note

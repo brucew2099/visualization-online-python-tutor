@@ -37,8 +37,8 @@ class ColorTable:
 
         # create a 2D matrix of empty strings
         self.table = []
-        for i in range(self.num_rows):
-            new_lst = ['' for e in range(self.num_columns)]
+        for _ in range(self.num_rows):
+            new_lst = ['' for _ in range(self.num_columns)]
             self.table.append(new_lst)
 
 

@@ -23,12 +23,9 @@ def sqrt(x):
 
   def improve(guess):
     return average(guess, x / guess)
-    
+
   def sqrt_iter(guess):
-    if is_good_enough(guess):
-      return guess
-    else:
-      return sqrt_iter(improve(guess))
+    return guess if is_good_enough(guess) else sqrt_iter(improve(guess))
 
   return sqrt_iter(1.0)
 

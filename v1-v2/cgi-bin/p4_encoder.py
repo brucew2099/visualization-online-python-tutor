@@ -54,63 +54,56 @@ def encode(dat, ignore_id=False):
         ret.append(foo)
 
   def encode_helper(dat, compound_obj_ids):
-    # primitive type
     if dat is None or  type(dat) in (int, float, str, bool):
       return dat
-    # compound type
+    my_id = id(dat)
+
+    global cur_small_id
+    if my_id not in real_to_small_IDs:
+      real_to_small_IDs[my_id] = 99999 if ignore_id else cur_small_id
+      cur_small_id += 1
+
+    if my_id in compound_obj_ids:
+      return ['CIRCULAR_REF', real_to_small_IDs[my_id]]
+
+    new_compound_obj_ids = compound_obj_ids.union([my_id])
+
+    typ = type(dat)
+    obj_as_string = object.__repr__(dat)
+
+    my_small_id = real_to_small_IDs[my_id]
+
+    if typ == list:
+      ret = ['LIST', my_small_id]
+      for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
+    elif typ == tuple:
+      ret = ['TUPLE', my_small_id]
+      for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
+    elif typ == set:
+      ret = ['SET', my_small_id]
+      for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
+    elif typ == dict:
+      ret = ['DICT', my_small_id]
+      append_attributes(ret, new_compound_obj_ids, dat)
+
+    elif typ == type:# its a class.  What a mess they made of it!
+      superclass_names = [e.__name__ for e in dat.__bases__]
+      ret = ['CLASS', dat.__name__, my_small_id, superclass_names]
+      if dat.__name__ not in native_types and hasattr(dat, '__dict__'):
+        append_attributes(ret, new_compound_obj_ids, dat.__dict__)
+
+    elif repr(typ).startswith("<class") and obj_as_string.find('object') >= 0:    # is it  an instance?
+      ret = ['INSTANCE', dat.__class__.__name__, my_small_id]
+      if hasattr(dat, '__dict__'):
+          append_attributes(ret, new_compound_obj_ids, dat.__dict__)
+
     else:
-      my_id = id(dat)
+      typeStr = repr(typ)
+      m = classRE.match(typeStr)
+      assert m, typ
+      ret = [m.group(1), my_small_id , obj_as_string]
 
-      global cur_small_id
-      if my_id not in real_to_small_IDs:
-        if ignore_id:
-          real_to_small_IDs[my_id] = 99999
-        else:
-          real_to_small_IDs[my_id] = cur_small_id
-        cur_small_id += 1
-
-      if my_id in compound_obj_ids:
-        return ['CIRCULAR_REF', real_to_small_IDs[my_id]]
-
-      new_compound_obj_ids = compound_obj_ids.union([my_id])
-
-      typ = type(dat)
-      obj_as_string = object.__repr__(dat)
-
-      my_small_id = real_to_small_IDs[my_id]
-
-      if typ == list:
-        ret = ['LIST', my_small_id]
-        for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
-      elif typ == tuple:
-        ret = ['TUPLE', my_small_id]
-        for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
-      elif typ == set:
-        ret = ['SET', my_small_id]
-        for e in dat: ret.append(encode_helper(e, new_compound_obj_ids))
-      elif typ == dict:
-        ret = ['DICT', my_small_id]
-        append_attributes(ret, new_compound_obj_ids, dat)
-
-      elif typ == type:    # its a class.  What a mess they made of it!
-            superclass_names = [e.__name__ for e in dat.__bases__]
-            ret = ['CLASS', dat.__name__, my_small_id, superclass_names]
-            if dat.__name__ not in native_types:
-                if hasattr(dat, '__dict__'):
-                    append_attributes(ret, new_compound_obj_ids, dat.__dict__)
-
-      elif repr(typ)[:6] == "<class" and obj_as_string.find('object') >= 0:    # is it  an instance?
-            ret = ['INSTANCE', dat.__class__.__name__, my_small_id]
-            if hasattr(dat, '__dict__'):
-                append_attributes(ret, new_compound_obj_ids, dat.__dict__)
-
-      else:
-        typeStr = repr(typ)
-        m = classRE.match(typeStr)
-        assert m, typ
-        ret = [m.group(1), my_small_id , obj_as_string]
-
-      return ret
+    return ret
 
   return encode_helper(dat, set())
 
@@ -118,14 +111,14 @@ def encode(dat, ignore_id=False):
 if __name__ == '__main__':
 
     def test(actual, expected=0):
-        """ Compare the actual to the expected value, and print a suitable message. """
-        import sys
-        linenum = sys._getframe(1).f_lineno         # get the caller's line number.
-        if (expected == actual):
-            msg = "Test on line %s passed." % (linenum)
-        else:
-            msg = "Test on line %s failed. Expected '%s', but got '%s'." % (linenum, expected, actual)
-        print(msg)
+      """ Compare the actual to the expected value, and print a suitable message. """
+      import sys
+      linenum = sys._getframe(1).f_lineno         # get the caller's line number.
+      if (expected == actual):
+        msg = f"Test on line {linenum} passed."
+      else:
+        msg = "Test on line %s failed. Expected '%s', but got '%s'." % (linenum, expected, actual)
+      print(msg)
 
     class P():
         p_attr1 = 123

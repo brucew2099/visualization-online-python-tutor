@@ -160,7 +160,7 @@ def create_lambda_line_number(codeobj, line_to_lambda_code):
       lineno_str = str(lambda_lineno)
     '''
     lineno_str = str(lambda_lineno)
-    return ' <line ' + lineno_str + '>'
+    return f' <line {lineno_str}>'
   except:
     return ''
 
@@ -268,225 +268,204 @@ class ObjectEncoder:
   # and as a side effect, update encoded_heap_objects
   def encode(self, dat, get_parent):
     """Encode a data value DAT using the GET_PARENT function for parent ids."""
-    # primitive type
     if not self.render_heap_primitives and type(dat) in PRIMITIVE_TYPES:
       return encode_primitive(dat)
-    # compound type - return an object reference and update encoded_heap_objects
-    else:
-      # IMPORTED_FAUX_PRIMITIVE feature added on 2018-06-13:
-      is_externally_defined = False # is dat defined in external (i.e., non-user) code?
-      try:
-        # some objects don't return anything for getsourcefile() but DO return
-        # something legit for getmodule(). e.g., "from io import StringIO"
-        # so TRY getmodule *first* and then fall back on getsourcefile
-        # since getmodule seems more robust empirically ...
-        gsf = inspect.getmodule(dat).__file__
-        if not gsf:
-            gsf = inspect.getsourcefile(dat)
+    # IMPORTED_FAUX_PRIMITIVE feature added on 2018-06-13:
+    is_externally_defined = False # is dat defined in external (i.e., non-user) code?
+    try:
+      # some objects don't return anything for getsourcefile() but DO return
+      # something legit for getmodule(). e.g., "from io import StringIO"
+      # so TRY getmodule *first* and then fall back on getsourcefile
+      # since getmodule seems more robust empirically ...
+      gsf = inspect.getmodule(dat).__file__
+      if not gsf:
+          gsf = inspect.getsourcefile(dat)
 
-        # a hacky heuristic is that if gsf is an absolute path, then it's likely
-        # to be some library function and *not* in user-defined code
-        #
-        # NB: don't use os.path.isabs() since it doesn't work on some
-        # python installations (e.g., on my webserver) and also adds a
-        # dependency on the os module. just do a simple check:
-        #
-        # hacky: do other checks for strings that are indicative of files
-        # that load user-written code, like 'generate_json_trace.py'
-        if gsf and gsf[0] == '/' and 'generate_json_trace.py' not in gsf:
-            is_externally_defined = True
-      except (AttributeError, TypeError):
-        pass # fail soft
-      my_id = id(dat)
+      # a hacky heuristic is that if gsf is an absolute path, then it's likely
+      # to be some library function and *not* in user-defined code
+      #
+      # NB: don't use os.path.isabs() since it doesn't work on some
+      # python installations (e.g., on my webserver) and also adds a
+      # dependency on the os module. just do a simple check:
+      #
+      # hacky: do other checks for strings that are indicative of files
+      # that load user-written code, like 'generate_json_trace.py'
+      if gsf and gsf[0] == '/' and 'generate_json_trace.py' not in gsf:
+          is_externally_defined = True
+    except (AttributeError, TypeError):
+      pass # fail soft
+    my_id = id(dat)
 
-      # if dat is an *real* object instance (and not some special built-in one
-      # like ABCMeta, or a py3 function object), then DON'T treat it as
-      # externally-defined because a user might be instantiating an *instance*
-      # of an imported class in their own code, so we want to show that instance
-      # in da visualization - ugh #hacky
-      if (is_instance(dat) and
-          type(dat) not in (types.FunctionType, types.MethodType, types.BuiltinFunctionType, types.BuiltinMethodType) and
-          hasattr(dat, '__class__') and (get_name(dat.__class__) != 'ABCMeta')):
-        is_externally_defined = False
+    # if dat is an *real* object instance (and not some special built-in one
+    # like ABCMeta, or a py3 function object), then DON'T treat it as
+    # externally-defined because a user might be instantiating an *instance*
+    # of an imported class in their own code, so we want to show that instance
+    # in da visualization - ugh #hacky
+    if (is_instance(dat) and
+        type(dat) not in (types.FunctionType, types.MethodType, types.BuiltinFunctionType, types.BuiltinMethodType) and
+        hasattr(dat, '__class__') and (get_name(dat.__class__) != 'ABCMeta')):
+      is_externally_defined = False
 
       # if this is an externally-defined object (i.e., from an imported
       # module, don't try to recurse into it since we don't want to see
       # the internals of imported objects; just return an
       # IMPORTED_FAUX_PRIMITIVE object and continue along on our way
-      if is_externally_defined:
-        label = 'object'
-        try:
-            label = type(dat).__name__
-            if is_class(dat):
-                label = 'class'
-            elif is_instance(dat):
-                label = 'object'
-        except:
-            pass
-        return ['IMPORTED_FAUX_PRIMITIVE', 'imported ' + label] # punt early!
+    if is_externally_defined:
+      label = 'object'
+      try:
+          label = type(dat).__name__
+          if is_class(dat):
+              label = 'class'
+          elif is_instance(dat):
+              label = 'object'
+      except:
+          pass
+      return ['IMPORTED_FAUX_PRIMITIVE', f'imported {label}']
 
       # next check whether it should be inlined
-      if self.should_inline_object_by_type(dat):
-        label = 'object'
-        try:
-            label = type(dat).__name__
-            if is_class(dat):
-                class_name = get_name(dat)
-                label = class_name + ' class'
-            elif is_instance(dat):
-                # a lot of copy-pasta from other parts of this file:
-                # TODO: clean up
-                class_name = None
-                if hasattr(dat, '__class__'):
-                    # common case ...
-                    class_name = get_name(dat.__class__)
-                else:
-                    # super special case for something like
-                    # "from datetime import datetime_CAPI" in Python 3.2,
-                    # which is some weird 'PyCapsule' type ...
-                    # http://docs.python.org/release/3.1.5/c-api/capsule.html
-                    class_name = get_name(type(dat))
-                if class_name:
-                    label = class_name + ' instance'
-                else:
-                    label = 'instance'
-        except:
-            pass
-        return ['IMPORTED_FAUX_PRIMITIVE', label + ' (hidden)'] # punt early!
-
+    if self.should_inline_object_by_type(dat):
+      label = 'object'
       try:
-        my_small_id = self.id_to_small_IDs[my_id]
-      except KeyError:
-        my_small_id = self.cur_small_ID
-        self.id_to_small_IDs[my_id] = self.cur_small_ID
-        self.cur_small_ID += 1
-
-      del my_id # to prevent bugs later in this function
-
-      ret = ['REF', my_small_id]
-
-      # punt early if you've already encoded this object
-      if my_small_id in self.encoded_heap_objects:
-        return ret
-
-
-      # major side-effect!
-      new_obj = []
-      self.encoded_heap_objects[my_small_id] = new_obj
-
-      typ = type(dat)
-
-      if typ == list:
-        new_obj.append('LIST')
-        for e in dat:
-          new_obj.append(self.encode(e, get_parent))
-      elif typ == tuple:
-        new_obj.append('TUPLE')
-        for e in dat:
-          new_obj.append(self.encode(e, get_parent))
-      elif typ == set:
-        new_obj.append('SET')
-        for e in dat:
-          new_obj.append(self.encode(e, get_parent))
-      elif typ == dict:
-        new_obj.append('DICT')
-        for (k, v) in dat.items():
-          # don't display some built-in locals ...
-          if k not in ('__module__', '__return__', '__locals__'):
-            new_obj.append([self.encode(k, get_parent), self.encode(v, get_parent)])
-      elif typ in (types.FunctionType, types.MethodType):
-        if is_python3:
-          argspec = inspect.getfullargspec(dat)
-        else:
-          argspec = inspect.getargspec(dat)
-
-        printed_args = [e for e in argspec.args]
-
-        default_arg_names_and_vals = []
-        if argspec.defaults:
-            num_missing_defaults = len(printed_args) - len(argspec.defaults)
-            assert num_missing_defaults >= 0
-            # tricky tricky tricky how default positional arguments work!
-            for i in range(num_missing_defaults, len(printed_args)):
-                default_arg_names_and_vals.append((printed_args[i], self.encode(argspec.defaults[i-num_missing_defaults], get_parent)))
-
-        if argspec.varargs:
-          printed_args.append('*' + argspec.varargs)
-
-        if is_python3:
-          # kwonlyargs come before varkw
-          if argspec.kwonlyargs:
-            printed_args.extend(argspec.kwonlyargs)
-            if argspec.kwonlydefaults:
-              # iterate in order of appearance in kwonlyargs
-              for varname in argspec.kwonlyargs:
-                if varname in argspec.kwonlydefaults:
-                  val = argspec.kwonlydefaults[varname]
-                  default_arg_names_and_vals.append((varname, self.encode(val, get_parent)))
-          if argspec.varkw:
-            printed_args.append('**' + argspec.varkw)
-        else:
-          if argspec.keywords:
-            printed_args.append('**' + argspec.keywords)
-
-        func_name = get_name(dat)
-
-        pretty_name = func_name
-
-        # sometimes might fail for, say, <genexpr>, so just ignore
-        # failures for now ...
-        try:
-          pretty_name += '(' + ', '.join(printed_args) + ')'
-        except TypeError:
+        label = type(dat).__name__
+        if is_class(dat):
+          class_name = get_name(dat)
+          label = f'{class_name} class'
+        elif is_instance(dat):
+          # a lot of copy-pasta from other parts of this file:
+          # TODO: clean up
+          class_name = None
+          class_name = (get_name(dat.__class__)
+                        if hasattr(dat, '__class__') else get_name(type(dat)))
+          label = f'{class_name} instance' if class_name else 'instance'
+      except:
           pass
+      return ['IMPORTED_FAUX_PRIMITIVE', f'{label} (hidden)']
 
-        # put a line number suffix on lambdas to more uniquely identify
-        # them, since they don't have names
-        if func_name == '<lambda>':
-            cod = (dat.__code__ if is_python3 else dat.func_code) # ugh!
-            lst = self.line_to_lambda_code[cod.co_firstlineno]
-            if cod not in lst:
-                lst.append(cod)
-            pretty_name += create_lambda_line_number(cod,
-                                                     self.line_to_lambda_code)
+    try:
+      my_small_id = self.id_to_small_IDs[my_id]
+    except KeyError:
+      my_small_id = self.cur_small_ID
+      self.id_to_small_IDs[my_id] = self.cur_small_ID
+      self.cur_small_ID += 1
 
-        encoded_val = ['FUNCTION', pretty_name, None]
-        if get_parent:
-          enclosing_frame_id = get_parent(dat)
-          encoded_val[2] = enclosing_frame_id
-        new_obj.extend(encoded_val)
-        # OPTIONAL!!!
-        if default_arg_names_and_vals:
-            new_obj.append(default_arg_names_and_vals) # *append* it as a single list element
+    del my_id # to prevent bugs later in this function
 
-      elif typ is types.BuiltinFunctionType:
-        pretty_name = get_name(dat) + '(...)'
-        new_obj.extend(['FUNCTION', pretty_name, None])
-      elif is_class(dat) or is_instance(dat):
-        self.encode_class_or_instance(dat, new_obj)
-      elif typ is types.ModuleType:
-        new_obj.extend(['module', dat.__name__])
-      elif typ in PRIMITIVE_TYPES:
-        assert self.render_heap_primitives
-        new_obj.extend(['HEAP_PRIMITIVE', type(dat).__name__, encode_primitive(dat)])
-      else:
-        typeStr = str(typ)
-        m = typeRE.match(typeStr)
+    ret = ['REF', my_small_id]
 
-        if not m:
-          m = classRE.match(typeStr)
-
-        assert m, typ
-
-        if is_python3:
-          encoded_dat = str(dat)
-        else:
-          # ugh, for bytearray() in Python 2, str() returns
-          # non-JSON-serializable characters, so need to decode:
-          encoded_dat = str(dat).decode('utf-8', 'replace')
-        new_obj.extend([m.group(1), encoded_dat])
-
+    # punt early if you've already encoded this object
+    if my_small_id in self.encoded_heap_objects:
       return ret
+
+
+    # major side-effect!
+    new_obj = []
+    self.encoded_heap_objects[my_small_id] = new_obj
+
+    typ = type(dat)
+
+    if typ == list:
+      new_obj.append('LIST')
+      new_obj.extend(self.encode(e, get_parent) for e in dat)
+    elif typ == tuple:
+      new_obj.append('TUPLE')
+      new_obj.extend(self.encode(e, get_parent) for e in dat)
+    elif typ == set:
+      new_obj.append('SET')
+      new_obj.extend(self.encode(e, get_parent) for e in dat)
+    elif typ == dict:
+      new_obj.append('DICT')
+      for (k, v) in dat.items():
+        # don't display some built-in locals ...
+        if k not in ('__module__', '__return__', '__locals__'):
+          new_obj.append([self.encode(k, get_parent), self.encode(v, get_parent)])
+    elif typ in (types.FunctionType, types.MethodType):
+      if is_python3:
+        argspec = inspect.getfullargspec(dat)
+      else:
+        argspec = inspect.getargspec(dat)
+
+      printed_args = list(argspec.args)
+
+      default_arg_names_and_vals = []
+      if argspec.defaults:
+          num_missing_defaults = len(printed_args) - len(argspec.defaults)
+          assert num_missing_defaults >= 0
+          # tricky tricky tricky how default positional arguments work!
+          for i in range(num_missing_defaults, len(printed_args)):
+              default_arg_names_and_vals.append((printed_args[i], self.encode(argspec.defaults[i-num_missing_defaults], get_parent)))
+
+      if argspec.varargs:
+        printed_args.append(f'*{argspec.varargs}')
+
+      if is_python3:
+        # kwonlyargs come before varkw
+        if argspec.kwonlyargs:
+          printed_args.extend(argspec.kwonlyargs)
+          if argspec.kwonlydefaults:
+            # iterate in order of appearance in kwonlyargs
+            for varname in argspec.kwonlyargs:
+              if varname in argspec.kwonlydefaults:
+                val = argspec.kwonlydefaults[varname]
+                default_arg_names_and_vals.append((varname, self.encode(val, get_parent)))
+        if argspec.varkw:
+          printed_args.append(f'**{argspec.varkw}')
+      else:
+        if argspec.keywords:
+          printed_args.append(f'**{argspec.keywords}')
+
+      func_name = get_name(dat)
+
+      pretty_name = func_name
+
+      # sometimes might fail for, say, <genexpr>, so just ignore
+      # failures for now ...
+      try:
+        pretty_name += '(' + ', '.join(printed_args) + ')'
+      except TypeError:
+        pass
+
+      # put a line number suffix on lambdas to more uniquely identify
+      # them, since they don't have names
+      if func_name == '<lambda>':
+          cod = (dat.__code__ if is_python3 else dat.func_code) # ugh!
+          lst = self.line_to_lambda_code[cod.co_firstlineno]
+          if cod not in lst:
+              lst.append(cod)
+          pretty_name += create_lambda_line_number(cod,
+                                                   self.line_to_lambda_code)
+
+      encoded_val = ['FUNCTION', pretty_name, None]
+      if get_parent:
+        enclosing_frame_id = get_parent(dat)
+        encoded_val[2] = enclosing_frame_id
+      new_obj.extend(encoded_val)
+      # OPTIONAL!!!
+      if default_arg_names_and_vals:
+          new_obj.append(default_arg_names_and_vals) # *append* it as a single list element
+
+    elif typ is types.BuiltinFunctionType:
+      pretty_name = f'{get_name(dat)}(...)'
+      new_obj.extend(['FUNCTION', pretty_name, None])
+    elif is_class(dat) or is_instance(dat):
+      self.encode_class_or_instance(dat, new_obj)
+    elif typ is types.ModuleType:
+      new_obj.extend(['module', dat.__name__])
+    elif typ in PRIMITIVE_TYPES:
+      assert self.render_heap_primitives
+      new_obj.extend(['HEAP_PRIMITIVE', type(dat).__name__, encode_primitive(dat)])
+    else:
+      typeStr = str(typ)
+      m = typeRE.match(typeStr)
+
+      if not m:
+        m = classRE.match(typeStr)
+
+      assert m, typ
+
+      encoded_dat = str(dat) if is_python3 else str(dat).decode('utf-8', 'replace')
+      new_obj.extend([m.group(1), encoded_dat])
+
+    return ret
 
 
   def encode_class_or_instance(self, dat, new_obj):

@@ -51,7 +51,7 @@ import cStringIO
 import pg_encoder
 
 
-IGNORE_VARS = set(('__stdout__', '__builtins__', '__name__', '__exception__'))
+IGNORE_VARS = {'__stdout__', '__builtins__', '__name__', '__exception__'}
 
 def get_user_stdout(frame):
   return frame.f_globals['__stdout__'].getvalue()
@@ -67,11 +67,7 @@ def get_user_locals(frame):
   return filter_var_dict(frame.f_locals)
 
 def filter_var_dict(d):
-  ret = {}
-  for (k,v) in d.iteritems():
-    if k not in IGNORE_VARS:
-      ret[k] = v
-  return ret
+  return {k: v for k, v in d.iteritems() if k not in IGNORE_VARS}
 
 
 class PGLogger(bdb.Bdb):
@@ -135,131 +131,143 @@ class PGLogger(bdb.Bdb):
         self.interaction(frame, None, 'return')
 
     def user_exception(self, frame, exc_info):
-        exc_type, exc_value, exc_traceback = exc_info
-        """This function is called if an exception occurs,
+      exc_type, exc_value, exc_traceback = exc_info
+      """This function is called if an exception occurs,
         but only if we are to stop at or just below this level."""
-        frame.f_locals['__exception__'] = exc_type, exc_value
-        if type(exc_type) == type(''):
-            exc_type_name = exc_type
-        else: exc_type_name = exc_type.__name__
-        self.interaction(frame, exc_traceback, 'exception')
+      frame.f_locals['__exception__'] = exc_type, exc_value
+      exc_type_name = exc_type if type(exc_type) == type('') else exc_type.__name__
+      self.interaction(frame, exc_traceback, 'exception')
 
 
     # General interaction function
 
     def interaction(self, frame, traceback, event_type):
-        self.setup(frame, traceback)
-        tos = self.stack[self.curindex]
-        lineno = tos[1]
+      self.setup(frame, traceback)
+      tos = self.stack[self.curindex]
+      lineno = tos[1]
 
-        # each element is a pair of (function name, ENCODED locals dict)
-        encoded_stack_locals = []
+      # each element is a pair of (function name, ENCODED locals dict)
+      encoded_stack_locals = []
 
-        # climb up until you find '<module>', which is (hopefully) the global scope
-        i = self.curindex
-        while True:
-          cur_frame = self.stack[i][0]
-          cur_name = cur_frame.f_code.co_name
-          if cur_name == '<module>':
-            break
+      # climb up until you find '<module>', which is (hopefully) the global scope
+      i = self.curindex
+      while True:
+        cur_frame = self.stack[i][0]
+        cur_name = cur_frame.f_code.co_name
+        if cur_name == '<module>':
+          break
 
           # special case for lambdas - grab their line numbers too
-          if cur_name == '<lambda>':
-            cur_name = 'lambda on line ' + str(cur_frame.f_code.co_firstlineno)
-          elif cur_name == '':
-            cur_name = 'unnamed function'
+        if cur_name == '<lambda>':
+          cur_name = f'lambda on line {str(cur_frame.f_code.co_firstlineno)}'
+        elif cur_name == '':
+          cur_name = 'unnamed function'
 
           # encode in a JSON-friendly format now, in order to prevent ill
           # effects of aliasing later down the line ...
-          encoded_locals = {}
-          for (k, v) in get_user_locals(cur_frame).iteritems():
-            # don't display some built-in locals ...
-            if k != '__module__':
-              encoded_locals[k] = pg_encoder.encode(v, self.ignore_id)
-
-          encoded_stack_locals.append((cur_name, encoded_locals))
-          i -= 1
+        encoded_locals = {
+            k: pg_encoder.encode(v, self.ignore_id)
+            for k, v in get_user_locals(cur_frame).iteritems() if k != '__module__'
+        }
+        encoded_stack_locals.append((cur_name, encoded_locals))
+        i -= 1
 
         # encode in a JSON-friendly format now, in order to prevent ill
         # effects of aliasing later down the line ...
-        encoded_globals = {}
-        for (k, v) in get_user_globals(tos[0]).iteritems():
-          encoded_globals[k] = pg_encoder.encode(v, self.ignore_id)
-
-        trace_entry = dict(line=lineno,
-                           event=event_type,
-                           func_name=tos[0].f_code.co_name,
-                           globals=encoded_globals,
-                           stack_locals=encoded_stack_locals,
-                           stdout=get_user_stdout(tos[0]))
+      encoded_globals = {
+          k: pg_encoder.encode(v, self.ignore_id)
+          for k, v in get_user_globals(tos[0]).iteritems()
+      }
+      trace_entry = dict(line=lineno,
+                         event=event_type,
+                         func_name=tos[0].f_code.co_name,
+                         globals=encoded_globals,
+                         stack_locals=encoded_stack_locals,
+                         stdout=get_user_stdout(tos[0]))
 
         # if there's an exception, then record its info:
-        if event_type == 'exception':
-          # always check in f_locals
-          exc = frame.f_locals['__exception__']
-          trace_entry['exception_msg'] = exc[0].__name__ + ': ' + str(exc[1])
+      if event_type == 'exception':
+        # always check in f_locals
+        exc = frame.f_locals['__exception__']
+        trace_entry['exception_msg'] = f'{exc[0].__name__}: {str(exc[1])}'
 
-        self.trace.append(trace_entry)
+      self.trace.append(trace_entry)
 
-        if len(self.trace) >= MAX_EXECUTED_LINES:
-          self.trace.append(dict(event='instruction_limit_reached', exception_msg='(stopped after ' + str(MAX_EXECUTED_LINES) + ' steps to prevent possible infinite loop)'))
-          self.force_terminate()
+      if len(self.trace) >= MAX_EXECUTED_LINES:
+        self.trace.append(
+            dict(
+                event='instruction_limit_reached',
+                exception_msg=
+                f'(stopped after {str(MAX_EXECUTED_LINES)} steps to prevent possible infinite loop)',
+            ))
+        self.force_terminate()
 
-        self.forget()
+      self.forget()
 
 
     def _runscript(self, script_str):
-        # When bdb sets tracing, a number of call and line events happens
-        # BEFORE debugger even reaches user's code (and the exact sequence of
-        # events depends on python version). So we take special measures to
-        # avoid stopping before we reach the main script (see user_line and
-        # user_call for details).
-        self._wait_for_mainpyfile = 1
+      # When bdb sets tracing, a number of call and line events happens
+      # BEFORE debugger even reaches user's code (and the exact sequence of
+      # events depends on python version). So we take special measures to
+      # avoid stopping before we reach the main script (see user_line and
+      # user_call for details).
+      self._wait_for_mainpyfile = 1
 
         # ok, let's try to sorta 'sandbox' the user script by not
         # allowing certain potentially dangerous operations:
-        user_builtins = {}
-        for (k,v) in __builtins__.iteritems():
-          if k in ('reload', 'input', 'apply', 'open', 'compile', 
-                   '__import__', 'file', 'eval', 'execfile',
-                   'exit', 'quit', 'raw_input', 
-                   'dir', 'globals', 'locals', 'vars',
-                   'compile'):
-            continue
-          user_builtins[k] = v
+      user_builtins = {
+          k: v
+          for k, v in __builtins__.iteritems() if k not in (
+              'reload',
+              'input',
+              'apply',
+              'open',
+              'compile',
+              '__import__',
+              'file',
+              'eval',
+              'execfile',
+              'exit',
+              'quit',
+              'raw_input',
+              'dir',
+              'globals',
+              'locals',
+              'vars',
+              'compile',
+          )
+      }
+      # redirect stdout of the user program to a memory buffer
+      user_stdout = cStringIO.StringIO()
+      sys.stdout = user_stdout
 
-        # redirect stdout of the user program to a memory buffer
-        user_stdout = cStringIO.StringIO()
-        sys.stdout = user_stdout
- 
-        user_globals = {"__name__"    : "__main__",
-                        "__builtins__" : user_builtins,
-                        "__stdout__" : user_stdout}
+      user_globals = {"__name__"    : "__main__",
+                      "__builtins__" : user_builtins,
+                      "__stdout__" : user_stdout}
 
-        try:
-          self.run(script_str, user_globals, user_globals)
-        # sys.exit ...
-        except SystemExit:
-          sys.exit(0)
-        except:
-          #traceback.print_exc() # uncomment this to see the REAL exception msg
+      try:
+        self.run(script_str, user_globals, user_globals)
+      except SystemExit:
+        sys.exit(0)
+      except:
+        #traceback.print_exc() # uncomment this to see the REAL exception msg
 
-          trace_entry = dict(event='uncaught_exception')
+        trace_entry = dict(event='uncaught_exception')
 
-          exc = sys.exc_info()[1]
-          if hasattr(exc, 'lineno'):
-            trace_entry['line'] = exc.lineno
-          if hasattr(exc, 'offset'):
-            trace_entry['offset'] = exc.offset
+        exc = sys.exc_info()[1]
+        if hasattr(exc, 'lineno'):
+          trace_entry['line'] = exc.lineno
+        if hasattr(exc, 'offset'):
+          trace_entry['offset'] = exc.offset
 
-          if hasattr(exc, 'msg'):
-            trace_entry['exception_msg'] = "Error: " + exc.msg
-          else:
-            trace_entry['exception_msg'] = "Unknown error"
+        if hasattr(exc, 'msg'):
+          trace_entry['exception_msg'] = f"Error: {exc.msg}"
+        else:
+          trace_entry['exception_msg'] = "Unknown error"
 
-          self.trace.append(trace_entry)
-          self.finalize()
-          sys.exit(0) # need to forceably STOP execution
+        self.trace.append(trace_entry)
+        self.finalize()
+        sys.exit(0) # need to forceably STOP execution
 
     def force_terminate(self):
       self.finalize()

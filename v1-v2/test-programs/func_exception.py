@@ -1,7 +1,6 @@
 def g(x,y):
     print("In g")
-    ans = x/y
-    return ans
+    return x/y
  
 g(5, 0)
 

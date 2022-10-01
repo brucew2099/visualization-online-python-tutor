@@ -72,7 +72,7 @@ class TNode:
 
     # assign unique IDs in node creation order
     global ID
-    self.id = 'n' + str(ID)
+    self.id = f'n{str(ID)}'
     ID += 1
 
   def disconnect(self):
@@ -114,7 +114,7 @@ class TNode:
     return ret
 
   def __str__(self):
-    return 'TNode(%s)' % repr(self.data)
+    return f'TNode({repr(self.data)})'
 
 
   # render a binary tree of TNode objects starting at self in a pretty
@@ -128,7 +128,7 @@ class TNode:
 
     if not compress:
       ios.write('\n')
-    
+
     queue = [] # each element is (node, level #)
 
     # Key: level number
@@ -137,9 +137,9 @@ class TNode:
 
 
     def render_phantom(parent_id, suffix):
-      phantom_id = parent_id + '_phantom_' + suffix
+      phantom_id = f'{parent_id}_phantom_{suffix}'
       ios.write('%s [label="",width=.1,style=invis]%s' % (phantom_id, separator))
-      ios.write('%s->%s [style=invis]%s' % (parent_id, phantom_id, separator))
+      ios.write(f'{parent_id}->{phantom_id} [style=invis]{separator}')
       return phantom_id
 
     def bfs_visit():
@@ -152,7 +152,7 @@ class TNode:
       ios.write(n.graphviz_str() + separator) # current node
       if n.left or n.right:
         if n.left:
-          ios.write('%s->%s%s' % (n.id, n.left.id, separator))
+          ios.write(f'{n.id}->{n.left.id}{separator}')
           queue.append((n.left, level+1))
           nodes_by_level[level+1].append(n.left.id)
         else:
@@ -165,7 +165,7 @@ class TNode:
         nodes_by_level[level+1].append(ph_id)
 
         if n.right:
-          ios.write('%s->%s%s' % (n.id, n.right.id, separator))
+          ios.write(f'{n.id}->{n.right.id}{separator}')
           queue.append((n.right, level+1))
           nodes_by_level[level+1].append(n.right.id)
         else:
@@ -255,30 +255,29 @@ and a pointer to the root.
         return None
 
     def delete_min(self):
-        """Delete the minimum data (and return the old node containing it)."""
-        if self.root is None:
-            return None, None
-        else:
-            # Walk to leftmost node.
-            node = self.root
-            while node.left is not None:
-                node = node.left
+      """Delete the minimum data (and return the old node containing it)."""
+      if self.root is None:
+        return None, None
+      # Walk to leftmost node.
+      node = self.root
+      while node.left is not None:
+          node = node.left
             # Remove that node and promote its right subtree.
-            if node.parent is not None:
-                node.parent.left = node.right
-            else: # The root was smallest.
-                self.root = node.right
-            if node.right is not None:
-                node.right.parent = node.parent
-            parent = node.parent
-            node.disconnect()
-            return node, parent
+      if node.parent is None: # The root was smallest.
+        self.root = node.right
+      else:
+        node.parent.left = node.right
+      if node.right is not None:
+          node.right.parent = node.parent
+      parent = node.parent
+      node.disconnect()
+      return node, parent
 
     def __str__(self):
-        if self.root is None:
-            return 'empty tree'
-        else:
-            return 'tree with root: %s' % str(self.root)
+      if self.root is None:
+        return 'empty tree'
+      else:
+        return f'tree with root: {str(self.root)}'
 
 if __name__ == "__main__":
   # simple test tree
@@ -293,10 +292,8 @@ if __name__ == "__main__":
                         left=TNode('c2',
                                    left=TNode('d2'))))
 
-  f = open('test.dot', 'w')
-  r.graphviz_render(f)
-  f.close()
-
+  with open('test.dot', 'w') as f:
+    r.graphviz_render(f)
   '''
   t = BST()
   import random

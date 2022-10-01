@@ -67,22 +67,20 @@ def png_files_differ(f1, f2):
 DIFF_PNG = '/tmp/diff.png'
 def png_files_differ(f1, f2):
 
-    # adjust fuzz to a higher percentage if it's not sensitive enough
-    # /tmp/diff.png shows pixel differences,
-    # and the number of differed pixels is sent to stderr
-    cmdline = ['compare', '-metric', 'AE', '-fuzz', '3%',
-               f1, f2,
-               '-compose', 'src', '-highlight-color', 'White',
-               '-lowlight-color', 'Black', DIFF_PNG]
-    (stdout, stderr) = Popen(cmdline, stdout=PIPE, stderr=PIPE).communicate()
-    assert stderr
-    if 'image widths or heights differ' in stderr:
-        if os.path.isfile(DIFF_PNG):
-            os.remove(DIFF_PNG)
-        return True
-    else:
-        num_pixels_diff = int(stderr)
-        return num_pixels_diff != 0
+  # adjust fuzz to a higher percentage if it's not sensitive enough
+  # /tmp/diff.png shows pixel differences,
+  # and the number of differed pixels is sent to stderr
+  cmdline = ['compare', '-metric', 'AE', '-fuzz', '3%',
+             f1, f2,
+             '-compose', 'src', '-highlight-color', 'White',
+             '-lowlight-color', 'Black', DIFF_PNG]
+  (stdout, stderr) = Popen(cmdline, stdout=PIPE, stderr=PIPE).communicate()
+  assert stderr
+  if 'image widths or heights differ' not in stderr:
+    return int(stderr) != 0
+  if os.path.isfile(DIFF_PNG):
+      os.remove(DIFF_PNG)
+  return True
 
 
 def run_test(input_filename, clobber_golden=False):
