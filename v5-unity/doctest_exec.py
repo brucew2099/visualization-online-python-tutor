@@ -67,7 +67,12 @@ def opt_run_doctest(doctest, example_number, student_code, probe_exprs):
         try:
             assert 0 <= example_number < len(doctest.examples)
         except AssertionError:
-            print(json.dumps("ERROR - example_number " + str(example_number) + " out of bounds for test " + doctest.name)) # print JSON to stdout
+            print(
+                json.dumps(
+                    f"ERROR - example_number {str(example_number)} out of bounds for test {doctest.name}"
+                )
+            )
+
             traceback.print_exc()
             sys.exit(1)
         example_to_run = doctest.examples[example_number]
@@ -83,11 +88,7 @@ if __name__ == "__main__":
     example_number = sys.argv[3]
     student_code = sys.argv[4]
 
-    if len(sys.argv) > 5:
-        probe_exprs = json.loads(sys.argv[5])
-    else:
-        probe_exprs = None
-
+    probe_exprs = json.loads(sys.argv[5]) if len(sys.argv) > 5 else None
     if example_number != 'all':
         example_number = int(example_number)
 
@@ -104,10 +105,10 @@ if __name__ == "__main__":
                     found = True
                     break
             if not found:
-                print(json.dumps("ERROR - test not found: " + test_name)) # print JSON to stdout
+                print(json.dumps(f"ERROR - test not found: {test_name}"))
                 sys.exit(1)
     except SystemExit as e:
         pass
     except:
-        print(json.dumps("ERROR - invalid lab pickle file: " + fullpath)) # print JSON to stdout
+        print(json.dumps(f"ERROR - invalid lab pickle file: {fullpath}"))
         traceback.print_exc()

@@ -1,4 +1,4 @@
 def foo():
-  local_y[('tup', 'le')] = set([1, 2, 3])
+  local_y[('tup', 'le')] = {1, 2, 3}
 
 foo()

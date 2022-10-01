@@ -58,27 +58,25 @@ def get_exec():
 
 @get('/load_matrix_problem.py')
 def load_matrix_problem():
-  prob_name = request.query.problem_name
-  assert type(prob_name) in (str, unicode)
+    prob_name = request.query.problem_name
+    assert type(prob_name) in (str, unicode)
 
-  # whitelist
-  assert prob_name in ('python_comprehension-1',)
+    # whitelist
+    assert prob_name in ('python_comprehension-1',)
 
-  fn = 'matrix-demo/' + prob_name + '.py'
-  f = open(fn)
-  cod = f.read()
-  f.close()
+    fn = f'matrix-demo/{prob_name}.py'
+    with open(fn) as f:
+        cod = f.read()
+    import doctest
+    import sys
+    p = doctest.DocTestParser()
+    examples = p.get_examples(cod)
+    if len(examples):
+        first_ex = examples[0]
+            #print >> sys.stderr, 'Source:', `first_ex.source`
+        testCod = f'result = {first_ex.source}'
 
-  import doctest
-  import sys
-  p = doctest.DocTestParser()
-  examples = p.get_examples(cod)
-  if len(examples):
-    first_ex = examples[0]
-    #print >> sys.stderr, 'Source:', `first_ex.source`
-    testCod = 'result = ' + first_ex.source
-
-  return json.dumps(dict(code=cod, test=testCod))
+    return json.dumps(dict(code=cod, test=testCod))
 
 
 @get('/submit_matrix_problem.py')

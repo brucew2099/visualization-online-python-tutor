@@ -28,8 +28,15 @@
 
 import os, sys
 
-delimiters = set(['Name:', 'Question:', 'Hint:', 'Solution:',
-'Skeleton:', 'Test:', 'Expect:'])
+delimiters = {
+    'Name:',
+    'Question:',
+    'Hint:',
+    'Solution:',
+    'Skeleton:',
+    'Test:',
+    'Expect:',
+}
 
 def parseQuestionsFile(filename):
   ret = {}

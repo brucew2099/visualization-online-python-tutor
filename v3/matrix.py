@@ -62,11 +62,8 @@ class Matrix :
             self.__setitem__((row,col),value)
             col += 1
 
-    def getrow (self, row) :
-        vals = []
-        for c in range(self.ncols) :
-            vals.append(self.__getitem__( (row,c) ))
-        return vals
+    def getrow(self, row):
+        return [self.__getitem__( (row,c) ) for c in range(self.ncols)]
 
 #===========================================
 
@@ -84,48 +81,42 @@ class Matrix :
             self.__setitem__((row,col),value)
             row += 1
 
-    def getcol (self, col) :
-        vals = []
-        for r in range(self.nrows) :
-            vals.append(self.__getitem__( (r,col) ))
-        return vals
+    def getcol(self, col):
+        return [self.__getitem__( (r,col) ) for r in range(self.nrows)]
 
 #===========================================
 
-    def populate(self, lists) :
+    def populate(self, lists):
         "Fill self from a list of lists"
         nRows = len(lists)
-        nCols = max([len(l) for l in lists])
+        nCols = max(len(l) for l in lists)
         for row in range(len(lists)) :
             vals = lists[row]
             if type(vals) != list : vals = [vals] # make sing col
             self.setrowVals(row, vals)
 
-    def renderHtml(self,wrap=None) :
-        lins = ["","<table %s>" % self.tableAttr]
-        if self.title : lins[0] = "<div>%s</div>" % self.title
-        headers = self.tableHeaders
-        if headers :
+    def renderHtml(self,wrap=None):
+        lins = ["", f"<table {self.tableAttr}>"]
+        if self.title:
+            lins[0] = f"<div>{self.title}</div>"
+        if headers := self.tableHeaders:
             lins.append("<tr><th>"+"</th><th>".join(map(str,headers))+
                         "</th></tr>")
-        for row in range(self.nrows) :
+        for row in range(self.nrows):
             rowLin = ["  <tr>"]
             vals = self.getrow(row)
-            if self.format : formats = self.format.getrow(row)
-            else           : formats = ['']*self.ncols
-            if self.style  : styles  = self.style.getrow(row)
-            else           : styles  = ['']*self.ncols
-            for c in range(self.ncols) :
-                val = vals[c]; style=styles[c]; format=formats[c]
-                if val == None : val = ""
-                if not format : format = self.dftFormat
-                if format :
-                    if type(format)==type("") : val = format % val
-                    else                      : val = format(val)
+            formats = self.format.getrow(row) if self.format else ['']*self.ncols
+            styles = self.style.getrow(row) if self.style else ['']*self.ncols
+            for c in range(self.ncols):
+                val = vals[c]
+                style=styles[c]
+                if val is None: val = ""
+                if format := formats[c] or self.dftFormat:
+                    val = format % val if type(format)==type("") else format(val)
                 if not style : style = self.dftStyle
-                if style : cell = '<td style="%s">%s</td>' % (style,val)
-                else     : cell = '<td>%s</td>' % val
-                if wrap and c>0 and c%wrap==0 : cell="</tr><tr>"+cell
+                cell = '<td style="%s">%s</td>' % (style,val) if style else f'<td>{val}</td>'
+                if wrap and c>0 and c%wrap==0:
+                    cell = f"</tr><tr>{cell}"
                 rowLin.append(cell)
             rowLin.append("</tr>")
             lins.append("".join(rowLin))

@@ -1,9 +1,6 @@
 x = [1, 2, 3]
 y = [4, 5, 6]
-z = y
-y = x
-x = z
-
+y, x = x, y
 x = [1, 2, 3] # a different [1, 2, 3] list!
 y = x
 x.append(4)

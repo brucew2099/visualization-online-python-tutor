@@ -18,7 +18,8 @@ uniqueAges = set(ages)
 uniqueAges.remove(21)
 
 # dict - mapping unique keys to values
-netWorth = {}
-netWorth['Donald Trump'] = 3000000000
-netWorth['Bill Gates'] = 58000000000
-netWorth['Joe Postdoc'] = 20000
+netWorth = {
+    'Donald Trump': 3000000000,
+    'Bill Gates': 58000000000,
+    'Joe Postdoc': 20000,
+}

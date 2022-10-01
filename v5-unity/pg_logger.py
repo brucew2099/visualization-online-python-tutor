@@ -80,40 +80,40 @@ CLASS_RE = re.compile('class\s+')
 
 # copied-pasted from translate() in https://github.com/python/cpython/blob/2.7/Lib/fnmatch.py
 def globToRegex(pat):
-    """Translate a shell PATTERN to a regular expression.
+  """Translate a shell PATTERN to a regular expression.
     There is no way to quote meta-characters.
     """
 
-    i, n = 0, len(pat)
-    res = ''
-    while i < n:
-        c = pat[i]
-        i = i+1
-        if c == '*':
-            res = res + '.*'
-        elif c == '?':
-            res = res + '.'
-        elif c == '[':
-            j = i
-            if j < n and pat[j] == '!':
-                j = j+1
-            if j < n and pat[j] == ']':
-                j = j+1
-            while j < n and pat[j] != ']':
-                j = j+1
-            if j >= n:
-                res = res + '\\['
-            else:
-                stuff = pat[i:j].replace('\\','\\\\')
-                i = j+1
-                if stuff[0] == '!':
-                    stuff = '^' + stuff[1:]
-                elif stuff[0] == '^':
-                    stuff = '\\' + stuff
-                res = '%s[%s]' % (res, stuff)
-        else:
-            res = res + re.escape(c)
-    return res + '\Z(?ms)'
+  i, n = 0, len(pat)
+  res = ''
+  while i < n:
+    c = pat[i]
+    i += 1
+    if c == '*':
+      res = f'{res}.*'
+    elif c == '?':
+      res = f'{res}.'
+    elif c == '[':
+      j = i
+      if j < n and pat[j] == '!':
+        j += 1
+      if j < n and pat[j] == ']':
+        j += 1
+      while j < n and pat[j] != ']':
+        j += 1
+      if j >= n:
+        res = res + '\\['
+      else:
+        stuff = pat[i:j].replace('\\','\\\\')
+        i = j+1
+        if stuff[0] == '!':
+          stuff = f'^{stuff[1:]}'
+        elif stuff[0] == '^':
+            stuff = '\\' + stuff
+        res = f'{res}[{stuff}]'
+    else:
+      res = res + re.escape(c)
+  return res + '\Z(?ms)'
 
 def compileGlobMatch(pattern):
     # very important to use match and *not* search!
@@ -222,10 +222,10 @@ def __restricted_import__(*args):
     # modules *can* be imported in python tutor ...
     ENTRIES_PER_LINE = 6
 
-    lines_to_print = []
-    # adapted from https://stackoverflow.com/questions/312443/how-do-you-split-a-list-into-evenly-sized-chunks
-    for i in range(0, len(all_allowed_imports), ENTRIES_PER_LINE):
-        lines_to_print.append(all_allowed_imports[i:i + ENTRIES_PER_LINE])
+    lines_to_print = [
+        all_allowed_imports[i:i + ENTRIES_PER_LINE]
+        for i in range(0, len(all_allowed_imports), ENTRIES_PER_LINE)
+    ]
     pretty_printed_imports = ',\n  '.join([', '.join(e) for e in lines_to_print])
 
     raise ImportError('{0} not found or not supported\nOnly these modules can be imported:\n  {1}{2}'.format(args[0], pretty_printed_imports, TRY_ANACONDA_STR))
@@ -305,8 +305,6 @@ def mouse_input_wrapper(prompt=''):
 
 # blacklist of builtins
 BANNED_BUILTINS = [] # 2018-06-15 don't ban any builtins since that's just security by obscurity
-                     # we should rely on other layered security mechanisms
-
 # old banned built-ins prior to 2018-06-15
 #BANNED_BUILTINS = ['reload', 'open', 'compile',
 #                   'file', 'eval', 'exec', 'execfile',
@@ -314,7 +312,13 @@ BANNED_BUILTINS = [] # 2018-06-15 don't ban any builtins since that's just secur
 #                   'dir', 'globals', 'locals', 'vars']
 # Peter says 'apply' isn't dangerous, so don't ban it
 
-IGNORE_VARS = set(('__builtins__', '__name__', '__exception__', '__doc__', '__package__'))
+IGNORE_VARS = {
+    '__builtins__',
+    '__name__',
+    '__exception__',
+    '__doc__',
+    '__package__',
+}
 
 
 '''
@@ -392,8 +396,8 @@ def get_user_globals(frame, at_global_scope=False):
   # print out list objects being built up in Python 2.x list comprehensions
   # (which don't have its own special <listcomp> frame, sadly)
   if not is_python3 and hasattr(frame, 'f_valuestack'):
-    for (i, e) in enumerate([e for e in frame.f_valuestack if type(e) is list]):
-      d['_tmp' + str(i+1)] = e
+    for (i, e) in enumerate(e for e in frame.f_valuestack if type(e) is list):
+      d[f'_tmp{str(i + 1)}'] = e
 
   # also filter out __return__ for globals only, but NOT for locals
   if '__return__' in d:
@@ -409,31 +413,27 @@ def get_user_locals(frame):
       ret['_tmp' + str(i+1)] = e
   '''
 
-  # special printing of list/set/dict comprehension objects as they are
-  # being built up incrementally ...
-  f_name = frame.f_code.co_name
   if hasattr(frame, 'f_valuestack'):
     # print out list objects being built up in Python 2.x list comprehensions
     # (which don't have its own special <listcomp> frame, sadly)
     if not is_python3:
-      for (i, e) in enumerate([e for e in frame.f_valuestack
-                               if type(e) is list]):
-        ret['_tmp' + str(i+1)] = e
+      for (i, e) in enumerate(e for e in frame.f_valuestack
+                                     if type(e) is list):
+        ret[f'_tmp{str(i + 1)}'] = e
 
+    # special printing of list/set/dict comprehension objects as they are
+    # being built up incrementally ...
+    f_name = frame.f_code.co_name
     # for dict and set comprehensions, which have their own frames:
     if f_name.endswith('comp>'):
-      for (i, e) in enumerate([e for e in frame.f_valuestack
-                               if type(e) in (list, set, dict)]):
-        ret['_tmp' + str(i+1)] = e
+      for (i, e) in enumerate(e for e in frame.f_valuestack
+                                     if type(e) in (list, set, dict)):
+        ret[f'_tmp{str(i + 1)}'] = e
 
   return ret
 
 def filter_var_dict(d):
-  ret = {}
-  for (k,v) in d.items():
-    if k not in IGNORE_VARS:
-      ret[k] = v
-  return ret
+  return {k: v for k, v in d.items() if k not in IGNORE_VARS}
 
 
 # yield all function objects locally-reachable from frame,
@@ -451,23 +451,18 @@ def visit_function_obj(v, ids_seen_set):
   v_id = id(v)
 
   # to prevent infinite loop
-  if v_id in ids_seen_set:
-    yield None
-  else:
+  if v_id not in ids_seen_set:
     ids_seen_set.add(v_id)
 
     typ = type(v)
-    
+
     # simple base case
     if typ in (types.FunctionType, types.MethodType):
       yield v
 
-    # recursive cases
     elif typ in (list, tuple, set):
       for child in v:
-        for child_res in visit_function_obj(child, ids_seen_set):
-          yield child_res
-
+        yield from visit_function_obj(child, ids_seen_set)
     elif typ == dict or pg_encoder.is_class(v) or pg_encoder.is_instance(v):
       contents_dict = None
 
@@ -478,14 +473,10 @@ def visit_function_obj(v, ids_seen_set):
         contents_dict = v.__dict__
 
       if contents_dict:
-        for (key_child, val_child) in contents_dict.items():
-          for key_child_res in visit_function_obj(key_child, ids_seen_set):
-            yield key_child_res
-          for val_child_res in visit_function_obj(val_child, ids_seen_set):
-            yield val_child_res
-
-    # degenerate base case
-    yield None
+        for key_child, val_child in contents_dict.items():
+          yield from visit_function_obj(key_child, ids_seen_set)
+          yield from visit_function_obj(val_child, ids_seen_set)
+  yield None
 
 
 class PGLogger(bdb.Bdb):
@@ -500,126 +491,117 @@ class PGLogger(bdb.Bdb):
     def __init__(self, cumulative_mode, heap_primitives, show_only_outputs, finalizer_func,
                  disable_security_checks=False, allow_all_modules=False, crazy_mode=False,
                  custom_modules=None, separate_stdout_by_module=False, probe_exprs=None):
-        bdb.Bdb.__init__(self)
-        self.mainpyfile = ''
-        self._wait_for_mainpyfile = 0
+      bdb.Bdb.__init__(self)
+      self.mainpyfile = ''
+      self._wait_for_mainpyfile = 0
 
-        if probe_exprs:
-            self.probe_exprs = probe_exprs
-        else:
-            self.probe_exprs = None
+      self.probe_exprs = probe_exprs or None
+      self.separate_stdout_by_module = separate_stdout_by_module
+      self.stdout_by_module = {} # Key: module name, Value: StringIO faux-stdout
 
-        self.separate_stdout_by_module = separate_stdout_by_module
-        self.stdout_by_module = {} # Key: module name, Value: StringIO faux-stdout
+      self.modules_to_trace = {'__main__'}
 
-        self.modules_to_trace = set(['__main__']) # always trace __main__!
+      # Key: module name
+      # Value: module's python code as a string
+      self.custom_modules = custom_modules
+      if self.custom_modules:
+          for module_name in self.custom_modules:
+              self.modules_to_trace.add(module_name)
 
-        # Key: module name
-        # Value: module's python code as a string
-        self.custom_modules = custom_modules
-        if self.custom_modules:
-            for module_name in self.custom_modules:
-                self.modules_to_trace.add(module_name)
+      self.disable_security_checks = disable_security_checks
+      self.allow_all_modules = allow_all_modules
+      # if we allow all modules, we shouldn't do security checks
+      # either since otherwise users can't really import anything
+      # because that will likely involve opening files on disk, which
+      # is disallowed by security checks
+      if self.allow_all_modules:
+          self.disable_security_checks = True
 
-        self.disable_security_checks = disable_security_checks
-        self.allow_all_modules = allow_all_modules
-        # if we allow all modules, we shouldn't do security checks
-        # either since otherwise users can't really import anything
-        # because that will likely involve opening files on disk, which
-        # is disallowed by security checks
-        if self.allow_all_modules:
-            self.disable_security_checks = True
+      # if True, then displays ALL stack frames that have ever existed
+      # rather than only those currently on the stack (and their
+      # lexical parents)
+      self.cumulative_mode = cumulative_mode
 
-        # if True, then displays ALL stack frames that have ever existed
-        # rather than only those currently on the stack (and their
-        # lexical parents)
-        self.cumulative_mode = cumulative_mode
+      # if True, then render certain primitive objects as heap objects
+      self.render_heap_primitives = heap_primitives
 
-        # if True, then render certain primitive objects as heap objects
-        self.render_heap_primitives = heap_primitives
+      # if True, then don't render any data structures in the trace,
+      # and show only outputs
+      self.show_only_outputs = show_only_outputs
 
-        # if True, then don't render any data structures in the trace,
-        # and show only outputs
-        self.show_only_outputs = show_only_outputs
+      # Run using the custom Py2crazy Python interpreter
+      self.crazy_mode = crazy_mode
 
-        # Run using the custom Py2crazy Python interpreter
-        self.crazy_mode = crazy_mode
+      # a function that takes the output trace as a parameter and
+      # processes it
+      self.finalizer_func = finalizer_func
 
-        # a function that takes the output trace as a parameter and
-        # processes it
-        self.finalizer_func = finalizer_func
+      # each entry contains a dict with the information for a single
+      # executed line
+      self.trace = []
 
-        # each entry contains a dict with the information for a single
-        # executed line
-        self.trace = []
+      # if this is true, don't put any more stuff into self.trace
+      self.done = False
 
-        # if this is true, don't put any more stuff into self.trace
-        self.done = False
+      # if this is non-null, don't do any more tracing until a
+      # 'return' instruction with a stack gotten from
+      # get_stack_code_IDs() that matches wait_for_return_stack
+      self.wait_for_return_stack = None
 
-        # if this is non-null, don't do any more tracing until a
-        # 'return' instruction with a stack gotten from
-        # get_stack_code_IDs() that matches wait_for_return_stack
-        self.wait_for_return_stack = None
+      #http://stackoverflow.com/questions/2112396/in-python-in-google-app-engine-how-do-you-capture-output-produced-by-the-print
+      self.GAE_STDOUT = sys.stdout
 
-        #http://stackoverflow.com/questions/2112396/in-python-in-google-app-engine-how-do-you-capture-output-produced-by-the-print
-        self.GAE_STDOUT = sys.stdout
+      # Key:   function object
+      # Value: parent frame
+      self.closures = {}
 
-        # Key:   function object
-        # Value: parent frame
-        self.closures = {}
+      # Key:   code object for a lambda
+      # Value: parent frame
+      self.lambda_closures = {}
 
-        # Key:   code object for a lambda
-        # Value: parent frame
-        self.lambda_closures = {}
+      # set of function objects that were defined in the global scope
+      self.globally_defined_funcs = set()
 
-        # set of function objects that were defined in the global scope
-        self.globally_defined_funcs = set()
+      # Key: frame object
+      # Value: monotonically increasing small ID, based on call order
+      self.frame_ordered_ids = {}
+      self.cur_frame_id = 1
 
-        # Key: frame object
-        # Value: monotonically increasing small ID, based on call order
-        self.frame_ordered_ids = {}
-        self.cur_frame_id = 1
+      # List of frames to KEEP AROUND after the function exits.
+      # If cumulative_mode is True, then keep ALL frames in
+      # zombie_frames; otherwise keep only frames where
+      # nested functions were defined within them.
+      self.zombie_frames = []
 
-        # List of frames to KEEP AROUND after the function exits.
-        # If cumulative_mode is True, then keep ALL frames in
-        # zombie_frames; otherwise keep only frames where
-        # nested functions were defined within them.
-        self.zombie_frames = []
+      # set of elements within zombie_frames that are also
+      # LEXICAL PARENTS of other frames
+      self.parent_frames_set = set()
 
-        # set of elements within zombie_frames that are also
-        # LEXICAL PARENTS of other frames
-        self.parent_frames_set = set()
+      # all globals that ever appeared in the program, in the order in
+      # which they appeared. note that this might be a superset of all
+      # the globals that exist at any particular execution point,
+      # since globals might have been deleted (using, say, 'del')
+      self.all_globals_in_order = []
 
-        # all globals that ever appeared in the program, in the order in
-        # which they appeared. note that this might be a superset of all
-        # the globals that exist at any particular execution point,
-        # since globals might have been deleted (using, say, 'del')
-        self.all_globals_in_order = []
+      # very important for this single object to persist throughout
+      # execution, or else canonical small IDs won't be consistent.
+      self.encoder = pg_encoder.ObjectEncoder(self)
 
-        # very important for this single object to persist throughout
-        # execution, or else canonical small IDs won't be consistent.
-        self.encoder = pg_encoder.ObjectEncoder(self)
+      self.executed_script = None # Python script to be executed!
 
-        self.executed_script = None # Python script to be executed!
+      # if there is at least one line that ends with BREAKPOINT_STR,
+      # then activate "breakpoint mode", where execution should stop
+      # ONLY at breakpoint lines.
+      self.breakpoints = []
 
-        # if there is at least one line that ends with BREAKPOINT_STR,
-        # then activate "breakpoint mode", where execution should stop
-        # ONLY at breakpoint lines.
-        self.breakpoints = []
+      self.vars_to_hide = set() # a set of regex match objects
+      self.types_to_inline = set() # a set of regex match objects derived from PYTUTOR_INLINE_TYPE_STR
 
-        self.vars_to_hide = set() # a set of regex match objects
-                                  # created by compileGlobMatch() from
-                                  # the contents of PYTUTOR_HIDE_STR
-        self.types_to_inline = set() # a set of regex match objects derived from PYTUTOR_INLINE_TYPE_STR
-
-        self.prev_lineno = -1 # keep track of previous line just executed
+      self.prev_lineno = -1 # keep track of previous line just executed
 
 
     def should_hide_var(self, var):
-        for re_match in self.vars_to_hide:
-            if re_match(var):
-                return True
-        return False
+      return any(re_match(var) for re_match in self.vars_to_hide)
 
 
     def get_user_stdout(self):
@@ -673,7 +655,7 @@ class PGLogger(bdb.Bdb):
     # variables inherited from possible parent frame candidates.
     def get_parent_frame(self, frame):
       #print >> sys.stderr, 'get_parent_frame: frame.f_code', frame.f_code
-      for (func_obj, parent_frame) in self.closures.items():
+      for func_obj, parent_frame in self.closures.items():
         # ok, there's a possible match, but let's compare the
         # local variables in parent_frame to those of frame
         # to make sure. this is a hack that happens to work because in
@@ -685,20 +667,20 @@ class PGLogger(bdb.Bdb):
             # Do not try to match local names
             if k in frame.f_code.co_varnames:
               continue
-            if k != '__return__' and k in parent_frame.f_locals:
-              if parent_frame.f_locals[k] != frame.f_locals[k]:
-                all_matched = False
-                break
+            if (k != '__return__' and k in parent_frame.f_locals
+                and parent_frame.f_locals[k] != frame.f_locals[k]):
+              all_matched = False
+              break
 
           if all_matched:
             return parent_frame
 
-      for (lambda_code_obj, parent_frame) in self.lambda_closures.items():
-        if lambda_code_obj == frame.f_code:
-          # TODO: should we do more verification like above?!?
-          return parent_frame
-
-      return None
+      return next(
+          (parent_frame
+           for lambda_code_obj, parent_frame in self.lambda_closures.items()
+           if lambda_code_obj == frame.f_code),
+          None,
+      )
 
 
     def lookup_zombie_frame_by_id(self, frame_id):
@@ -775,26 +757,23 @@ class PGLogger(bdb.Bdb):
         self.interaction(frame, None, 'return')
 
     def user_exception(self, frame, exc_info):
-        """This function is called if an exception occurs,
+      """This function is called if an exception occurs,
         but only if we are to stop at or just below this level."""
-        if self.done: return
+      if self.done: return
 
-        exc_type, exc_value, exc_traceback = exc_info
-        frame.f_locals['__exception__'] = exc_type, exc_value
-        if type(exc_type) == type(''):
-            exc_type_name = exc_type
-        else: exc_type_name = exc_type.__name__
-
-        if exc_type_name == 'RawInputException':
-          raw_input_arg = str(exc_value.args[0]) # make sure it's a string so it's JSON serializable!
-          self.trace.append(dict(event='raw_input', prompt=raw_input_arg))
-          self.done = True
-        elif exc_type_name == 'MouseInputException':
-          mouse_input_arg = str(exc_value.args[0]) # make sure it's a string so it's JSON serializable!
-          self.trace.append(dict(event='mouse_input', prompt=mouse_input_arg))
-          self.done = True
-        else:
-          self.interaction(frame, exc_traceback, 'exception')
+      exc_type, exc_value, exc_traceback = exc_info
+      frame.f_locals['__exception__'] = exc_type, exc_value
+      exc_type_name = exc_type if type(exc_type) == type('') else exc_type.__name__
+      if exc_type_name == 'RawInputException':
+        raw_input_arg = str(exc_value.args[0]) # make sure it's a string so it's JSON serializable!
+        self.trace.append(dict(event='raw_input', prompt=raw_input_arg))
+        self.done = True
+      elif exc_type_name == 'MouseInputException':
+        mouse_input_arg = str(exc_value.args[0]) # make sure it's a string so it's JSON serializable!
+        self.trace.append(dict(event='mouse_input', prompt=mouse_input_arg))
+        self.done = True
+      else:
+        self.interaction(frame, exc_traceback, 'exception')
 
     def get_script_line(self, n):
         return self.executed_script_lines[n-1]
@@ -802,15 +781,15 @@ class PGLogger(bdb.Bdb):
     # General interaction function
 
     def interaction(self, frame, traceback, event_type):
-        self.setup(frame, traceback)
-        tos = self.stack[self.curindex]
-        top_frame = tos[0]
-        lineno = tos[1]
+      self.setup(frame, traceback)
+      tos = self.stack[self.curindex]
+      top_frame = tos[0]
+      lineno = tos[1]
 
-        topframe_module = top_frame.f_globals['__name__']
+      topframe_module = top_frame.f_globals['__name__']
 
-        # debug ...
-        '''
+      # debug ...
+      '''
         print >> sys.stderr
         print >> sys.stderr, '=== STACK ===', 'curindex:', self.curindex
         for (e,ln) in self.stack:
@@ -819,504 +798,497 @@ class PGLogger(bdb.Bdb):
         '''
 
 
-        # don't trace inside of ANY functions that aren't user-written code
-        # (e.g., those from imported modules -- e.g., random, re -- or the
-        # __restricted_import__ function in this file)
+      # don't trace inside of ANY functions that aren't user-written code
+      # (e.g., those from imported modules -- e.g., random, re -- or the
+      # __restricted_import__ function in this file)
+      #
+      # empirically, it seems like the FIRST entry in self.stack is
+      # the 'run' function from bdb.py, but everything else on the
+      # stack is the user program's "real stack"
+
+      # Look only at the "topmost" frame on the stack ...
+
+      # if we're not in a module that we are explicitly tracing, skip:
+      # (this comes up in tests/backend-tests/namedtuple.txt)
+      if topframe_module not in self.modules_to_trace:
+        return
+      # also don't trace inside of the magic "constructor" code
+      if top_frame.f_code.co_name == '__new__':
+        return
+      # or __repr__, which is often called when running print statements
+      if top_frame.f_code.co_name == '__repr__':
+        return
+
+      # don't trace if wait_for_return_stack is non-null ...
+      if self.wait_for_return_stack:
+        if event_type == 'return' and \
+               (self.wait_for_return_stack == self.get_stack_code_IDs()):
+          self.wait_for_return_stack = None # reset!
+        return # always bail!
+      else:
+        # Skip all "calls" that are actually class definitions, since
+        # those faux calls produce lots of ugly cruft in the trace.
         #
-        # empirically, it seems like the FIRST entry in self.stack is
-        # the 'run' function from bdb.py, but everything else on the
-        # stack is the user program's "real stack"
-
-        # Look only at the "topmost" frame on the stack ...
-
-        # if we're not in a module that we are explicitly tracing, skip:
-        # (this comes up in tests/backend-tests/namedtuple.txt)
-        if topframe_module not in self.modules_to_trace:
-          return
-        # also don't trace inside of the magic "constructor" code
-        if top_frame.f_code.co_name == '__new__':
-          return
-        # or __repr__, which is often called when running print statements
-        if top_frame.f_code.co_name == '__repr__':
-          return
-
-        # don't trace if wait_for_return_stack is non-null ...
-        if self.wait_for_return_stack:
-          if event_type == 'return' and \
-             (self.wait_for_return_stack == self.get_stack_code_IDs()):
-            self.wait_for_return_stack = None # reset!
-          return # always bail!
-        else:
-          # Skip all "calls" that are actually class definitions, since
-          # those faux calls produce lots of ugly cruft in the trace.
-          #
-          # NB: Only trigger on calls to functions defined in
-          # user-written code (i.e., co_filename == '<string>'), but that
-          # should already be ensured by the above check for whether we're
-          # in user-written code.
-          if event_type == 'call':
-            first_lineno = top_frame.f_code.co_firstlineno
-            if topframe_module == "__main__":
-                func_line = self.get_script_line(first_lineno)
-            elif topframe_module in self.custom_modules:
-                module_code = self.custom_modules[topframe_module]
-                module_code_lines = module_code.splitlines() # TODO: maybe pre-split lines?
-                func_line = module_code_lines[first_lineno-1]
-            else:
-                # you're hosed
-                func_line = ''
-            #print >> sys.stderr, func_line
-
-            if CLASS_RE.match(func_line.lstrip()): # ignore leading spaces
-              self.wait_for_return_stack = self.get_stack_code_IDs()
-              return
-
-
-        self.encoder.reset_heap() # VERY VERY VERY IMPORTANT,
-                                  # or else we won't properly capture heap object mutations in the trace!
-
+        # NB: Only trigger on calls to functions defined in
+        # user-written code (i.e., co_filename == '<string>'), but that
+        # should already be ensured by the above check for whether we're
+        # in user-written code.
         if event_type == 'call':
-          # Don't be so strict about this assertion because it FAILS
-          # when you're calling a generator (not for the first time),
-          # since that frame has already previously been on the stack ...
-          #assert top_frame not in self.frame_ordered_ids
+          first_lineno = top_frame.f_code.co_firstlineno
+          if topframe_module == "__main__":
+              func_line = self.get_script_line(first_lineno)
+          elif topframe_module in self.custom_modules:
+              module_code = self.custom_modules[topframe_module]
+              module_code_lines = module_code.splitlines() # TODO: maybe pre-split lines?
+              func_line = module_code_lines[first_lineno-1]
+          else:
+              # you're hosed
+              func_line = ''
+          #print >> sys.stderr, func_line
 
-          self.frame_ordered_ids[top_frame] = self.cur_frame_id
-          self.cur_frame_id += 1
-
-          if self.cumulative_mode:
-            self.zombie_frames.append(top_frame)
-
-        # kinda tricky to get the timing right -- basically, as soon as you
-        # make a call, set sys.stdout to the stream for the appropriate
-        # module, and as soon as you return, set sys.stdout to the
-        # stream for your caller's module. we need to do this on the
-        # return call since we want to immediately start picking up
-        # prints to stdout *right after* this function returns
-        if self.separate_stdout_by_module:
-          if event_type == 'call':
-            if topframe_module in self.stdout_by_module:
-              sys.stdout = self.stdout_by_module[topframe_module]
-            else:
-              sys.stdout = self.stdout_by_module["<other>"]
-          elif event_type == 'return' and self.curindex > 0:
-            prev_tos = self.stack[self.curindex - 1]
-            prev_topframe = prev_tos[0]
-            prev_topframe_module = prev_topframe.f_globals['__name__']
-            if prev_topframe_module in self.stdout_by_module:
-              sys.stdout = self.stdout_by_module[prev_topframe_module]
-            else:
-              sys.stdout = self.stdout_by_module["<other>"]
+          if CLASS_RE.match(func_line.lstrip()): # ignore leading spaces
+            self.wait_for_return_stack = self.get_stack_code_IDs()
+            return
 
 
-        # only render zombie frames that are NO LONGER on the stack
-        #
-        # subtle: self.stack[:self.curindex+1] is the real stack, since
-        # everything after self.curindex+1 is beyond the top of the
-        # stack. this seems to be relevant only when there's an exception,
-        # since the ENTIRE stack is preserved but self.curindex
-        # starts decrementing as the exception bubbles up the stack.
-        cur_stack_frames = [e[0] for e in self.stack[:self.curindex+1]]
-        zombie_frames_to_render = [e for e in self.zombie_frames if e not in cur_stack_frames]
+      self.encoder.reset_heap() # VERY VERY VERY IMPORTANT,
+      if event_type == 'call':
+        # Don't be so strict about this assertion because it FAILS
+        # when you're calling a generator (not for the first time),
+        # since that frame has already previously been on the stack ...
+        #assert top_frame not in self.frame_ordered_ids
+
+        self.frame_ordered_ids[top_frame] = self.cur_frame_id
+        self.cur_frame_id += 1
+
+        if self.cumulative_mode:
+          self.zombie_frames.append(top_frame)
+
+      # kinda tricky to get the timing right -- basically, as soon as you
+      # make a call, set sys.stdout to the stream for the appropriate
+      # module, and as soon as you return, set sys.stdout to the
+      # stream for your caller's module. we need to do this on the
+      # return call since we want to immediately start picking up
+      # prints to stdout *right after* this function returns
+      if self.separate_stdout_by_module:
+        if event_type == 'call':
+          if topframe_module in self.stdout_by_module:
+            sys.stdout = self.stdout_by_module[topframe_module]
+          else:
+            sys.stdout = self.stdout_by_module["<other>"]
+        elif event_type == 'return' and self.curindex > 0:
+          prev_tos = self.stack[self.curindex - 1]
+          prev_topframe = prev_tos[0]
+          prev_topframe_module = prev_topframe.f_globals['__name__']
+          if prev_topframe_module in self.stdout_by_module:
+            sys.stdout = self.stdout_by_module[prev_topframe_module]
+          else:
+            sys.stdout = self.stdout_by_module["<other>"]
 
 
-        # each element is a pair of (function name, ENCODED locals dict)
-        encoded_stack_locals = []
+      # only render zombie frames that are NO LONGER on the stack
+      #
+      # subtle: self.stack[:self.curindex+1] is the real stack, since
+      # everything after self.curindex+1 is beyond the top of the
+      # stack. this seems to be relevant only when there's an exception,
+      # since the ENTIRE stack is preserved but self.curindex
+      # starts decrementing as the exception bubbles up the stack.
+      cur_stack_frames = [e[0] for e in self.stack[:self.curindex+1]]
+      zombie_frames_to_render = [e for e in self.zombie_frames if e not in cur_stack_frames]
+
+
+      # each element is a pair of (function name, ENCODED locals dict)
+      encoded_stack_locals = []
 
 
         # returns a dict with keys: function name, frame id, id of parent frame, encoded_locals dict
-        def create_encoded_stack_entry(cur_frame):
-          #print >> sys.stderr, '- create_encoded_stack_entry', cur_frame, self.closures, self.lambda_closures
-          ret = {}
+      def create_encoded_stack_entry(cur_frame):
+        #print >> sys.stderr, '- create_encoded_stack_entry', cur_frame, self.closures, self.lambda_closures
+        ret = {}
 
 
-          parent_frame_id_list = []
+        parent_frame_id_list = []
 
-          f = cur_frame
-          while True:
-            p = self.get_parent_frame(f)
-            if p:
-              pid = self.get_frame_id(p)
-              assert pid
-              parent_frame_id_list.append(pid)
-              f = p
-            else:
-              break
+        f = cur_frame
+        while True:
+          p = self.get_parent_frame(f)
+          if p:
+            pid = self.get_frame_id(p)
+            assert pid
+            parent_frame_id_list.append(pid)
+            f = p
+          else:
+            break
 
 
-          cur_name = cur_frame.f_code.co_name
+        cur_name = cur_frame.f_code.co_name
 
-          if cur_name == '':
-            cur_name = 'unnamed function'
+        if cur_name == '':
+          cur_name = 'unnamed function'
 
-          # augment lambdas with line number
-          if cur_name == '<lambda>':
-            cur_name += pg_encoder.create_lambda_line_number(cur_frame.f_code,
-                                                             self.encoder.line_to_lambda_code)
+        # augment lambdas with line number
+        if cur_name == '<lambda>':
+          cur_name += pg_encoder.create_lambda_line_number(cur_frame.f_code,
+                                                           self.encoder.line_to_lambda_code)
 
-          # encode in a JSON-friendly format now, in order to prevent ill
-          # effects of aliasing later down the line ...
-          encoded_locals = {}
+        # encode in a JSON-friendly format now, in order to prevent ill
+        # effects of aliasing later down the line ...
+        encoded_locals = {}
 
-          for (k, v) in get_user_locals(cur_frame).items():
-            is_in_parent_frame = False
+        for (k, v) in get_user_locals(cur_frame).items():
+          is_in_parent_frame = False
 
             # don't display locals that appear in your parents' stack frames,
             # since that's redundant
-            for pid in parent_frame_id_list:
-              parent_frame = self.lookup_zombie_frame_by_id(pid)
-              if k in parent_frame.f_locals:
-                # ignore __return__, which is never copied
-                if k != '__return__':
-                  # these values SHOULD BE ALIASES
-                  # (don't do an 'is' check since it might not fire for primitives)
-                  if parent_frame.f_locals[k] == v:
-                      is_in_parent_frame = True
+          for pid in parent_frame_id_list:
+            parent_frame = self.lookup_zombie_frame_by_id(pid)
+            if (k in parent_frame.f_locals and k != '__return__'
+                and parent_frame.f_locals[k] == v):
+              is_in_parent_frame = True
 
-            if is_in_parent_frame and k not in cur_frame.f_code.co_varnames:
-              continue
+          if is_in_parent_frame and k not in cur_frame.f_code.co_varnames:
+            continue
 
-            # don't display some built-in locals ...
-            if k == '__module__':
-              continue
+          # don't display some built-in locals ...
+          if k == '__module__':
+            continue
 
-            if self.should_hide_var(k):
-              continue
+          if self.should_hide_var(k):
+            continue
 
-            encoded_val = self.encoder.encode(v, self.get_parent_of_function)
-            encoded_locals[k] = encoded_val
+          encoded_val = self.encoder.encode(v, self.get_parent_of_function)
+          encoded_locals[k] = encoded_val
 
 
-          # order the variable names in a sensible way:
+        # order the variable names in a sensible way:
 
-          # Let's start with co_varnames, since it (often) contains all
-          # variables in this frame, some of which might not exist yet.
-          ordered_varnames = []
-          for e in cur_frame.f_code.co_varnames:
-            if e in encoded_locals:
-              ordered_varnames.append(e)
+        # Let's start with co_varnames, since it (often) contains all
+        # variables in this frame, some of which might not exist yet.
+        ordered_varnames = []
+        for e in cur_frame.f_code.co_varnames:
+          if e in encoded_locals:
+            ordered_varnames.append(e)
 
-          # sometimes co_varnames doesn't contain all of the true local
-          # variables: e.g., when executing a 'class' definition.  in that
-          # case, iterate over encoded_locals and push them onto the end
-          # of ordered_varnames in alphabetical order
-          for e in sorted(encoded_locals.keys()):
-            if e != '__return__' and e not in ordered_varnames:
-              ordered_varnames.append(e)
+        # sometimes co_varnames doesn't contain all of the true local
+        # variables: e.g., when executing a 'class' definition.  in that
+        # case, iterate over encoded_locals and push them onto the end
+        # of ordered_varnames in alphabetical order
+        for e in sorted(encoded_locals.keys()):
+          if e != '__return__' and e not in ordered_varnames:
+            ordered_varnames.append(e)
 
-          # finally, put __return__ at the very end
-          if '__return__' in encoded_locals:
-            ordered_varnames.append('__return__')
+        # finally, put __return__ at the very end
+        if '__return__' in encoded_locals:
+          ordered_varnames.append('__return__')
 
-          # doctor Python 3 initializer to look like a normal function (denero)
-          if '__locals__' in encoded_locals:
-            ordered_varnames.remove('__locals__')
-            local = encoded_locals.pop('__locals__')
-            if encoded_locals.get('__return__', True) is None:
-              encoded_locals['__return__'] = local
+        # doctor Python 3 initializer to look like a normal function (denero)
+        if '__locals__' in encoded_locals:
+          ordered_varnames.remove('__locals__')
+          local = encoded_locals.pop('__locals__')
+          if encoded_locals.get('__return__', True) is None:
+            encoded_locals['__return__'] = local
 
-          # crucial sanity checks!
-          assert len(ordered_varnames) == len(encoded_locals)
-          for e in ordered_varnames:
-            assert e in encoded_locals
+        # crucial sanity checks!
+        assert len(ordered_varnames) == len(encoded_locals)
+        for e in ordered_varnames:
+          assert e in encoded_locals
 
-          return dict(func_name=cur_name,
-                      is_parent=(cur_frame in self.parent_frames_set),
-                      frame_id=self.get_frame_id(cur_frame),
-                      parent_frame_id_list=parent_frame_id_list,
-                      encoded_locals=encoded_locals,
-                      ordered_varnames=ordered_varnames)
+        return dict(func_name=cur_name,
+                    is_parent=(cur_frame in self.parent_frames_set),
+                    frame_id=self.get_frame_id(cur_frame),
+                    parent_frame_id_list=parent_frame_id_list,
+                    encoded_locals=encoded_locals,
+                    ordered_varnames=ordered_varnames)
 
 
-        i = self.curindex
+
+      i = self.curindex
 
         # look for whether a nested function has been defined during
         # this particular call:
-        if i > 1: # i == 1 implies that there's only a global scope visible
-          for v in visit_all_locally_reachable_function_objs(top_frame):
-            if (v not in self.closures and \
-                v not in self.globally_defined_funcs):
+      if i > 1: # i == 1 implies that there's only a global scope visible
+        for v in visit_all_locally_reachable_function_objs(top_frame):
+          if (v not in self.closures and \
+                    v not in self.globally_defined_funcs):
 
-              # Look for the presence of the code object (v.func_code
-              # for Python 2 or v.__code__ for Python 3) in the
-              # constant pool (f_code.co_consts) of an enclosing
-              # stack frame, and set that frame as your parent.
-              #
-              # This technique properly handles lambdas passed as
-              # function parameters. e.g., this example:
-              #
-              # def foo(x):
-              #   bar(lambda y: x + y)
-              # def bar(a):
-              #   print a(20)
-              # foo(10)
-              chosen_parent_frame = None
-              # SUPER hacky but seems to work -- use reversed(self.stack)
-              # because we want to traverse starting from the TOP of the stack
-              # (most recent frame) and find the first frame containing
-              # a constant code object that matches v.__code__ or v.func_code
-              #
-              # required for this example from Berkeley CS61a:
-              #
-              # def f(p, k):
-              #     def g():
-              #         print(k)
-              #     if k == 0:
-              #         f(g, 1)
-              # f(None, 0)
-              #
-              # there are two calls to f, each of which defines a
-              # closure g that should point to the respective frame.
-              #
-              # note that for the second call to f, the parent of the
-              # g defined in there should be that frame, which is at
-              # the TOP of the stack. this reversed() hack does the
-              # right thing. note that if you don't traverse the stack
-              # backwards, then you will mistakenly get the parent as
-              # the FIRST f frame (bottom of the stack).
-              for (my_frame, my_lineno) in reversed(self.stack):
-                if chosen_parent_frame:
+            # Look for the presence of the code object (v.func_code
+            # for Python 2 or v.__code__ for Python 3) in the
+            # constant pool (f_code.co_consts) of an enclosing
+            # stack frame, and set that frame as your parent.
+            #
+            # This technique properly handles lambdas passed as
+            # function parameters. e.g., this example:
+            #
+            # def foo(x):
+            #   bar(lambda y: x + y)
+            # def bar(a):
+            #   print a(20)
+            # foo(10)
+            chosen_parent_frame = None
+            # SUPER hacky but seems to work -- use reversed(self.stack)
+            # because we want to traverse starting from the TOP of the stack
+            # (most recent frame) and find the first frame containing
+            # a constant code object that matches v.__code__ or v.func_code
+            #
+            # required for this example from Berkeley CS61a:
+            #
+            # def f(p, k):
+            #     def g():
+            #         print(k)
+            #     if k == 0:
+            #         f(g, 1)
+            # f(None, 0)
+            #
+            # there are two calls to f, each of which defines a
+            # closure g that should point to the respective frame.
+            #
+            # note that for the second call to f, the parent of the
+            # g defined in there should be that frame, which is at
+            # the TOP of the stack. this reversed() hack does the
+            # right thing. note that if you don't traverse the stack
+            # backwards, then you will mistakenly get the parent as
+            # the FIRST f frame (bottom of the stack).
+            for (my_frame, my_lineno) in reversed(self.stack):
+              if chosen_parent_frame:
+                break
+
+              for frame_const in my_frame.f_code.co_consts:
+                if frame_const is (v.__code__ if is_python3 else v.func_code):
+                  chosen_parent_frame = my_frame
                   break
-
-                for frame_const in my_frame.f_code.co_consts:
-                  if frame_const is (v.__code__ if is_python3 else v.func_code):
-                    chosen_parent_frame = my_frame
-                    break
 
               # 2013-12-01 commented out this line so tests/backend-tests/papajohn-monster.txt
               # works without an assertion failure ...
               #assert chosen_parent_frame # I hope this always passes :0
 
               # this condition should be False for functions declared in global scope ...
-              if chosen_parent_frame in self.frame_ordered_ids:
-                self.closures[v] = chosen_parent_frame
-                self.parent_frames_set.add(chosen_parent_frame) # unequivocally add to this set!!!
-                if not chosen_parent_frame in self.zombie_frames:
-                  self.zombie_frames.append(chosen_parent_frame)
-          else:
+            if chosen_parent_frame in self.frame_ordered_ids:
+              self.closures[v] = chosen_parent_frame
+              self.parent_frames_set.add(chosen_parent_frame) # unequivocally add to this set!!!
+              if chosen_parent_frame not in self.zombie_frames:
+                self.zombie_frames.append(chosen_parent_frame)
+        else:
             # look for code objects of lambdas defined within this
             # function, which comes up in cases like line 2 of:
             # def x(y):
             #   (lambda z: lambda w: z+y)(y)
             #
             # x(42)
-            if top_frame.f_code.co_consts:
-              for e in top_frame.f_code.co_consts:
-                if type(e) == types.CodeType and e.co_name == '<lambda>':
-                  # TODO: what if it's already in lambda_closures?
-                  self.lambda_closures[e] = top_frame
-                  self.parent_frames_set.add(top_frame) # copy-paste from above
-                  if not top_frame in self.zombie_frames:
-                    self.zombie_frames.append(top_frame)
-        else:
-          # if there is only a global scope visible ...
-          for (k, v) in get_user_globals(top_frame).items():
-            if (type(v) in (types.FunctionType, types.MethodType) and \
-                v not in self.closures):
-              self.globally_defined_funcs.add(v)
+          if top_frame.f_code.co_consts:
+            for e in top_frame.f_code.co_consts:
+              if type(e) == types.CodeType and e.co_name == '<lambda>':
+                # TODO: what if it's already in lambda_closures?
+                self.lambda_closures[e] = top_frame
+                self.parent_frames_set.add(top_frame) # copy-paste from above
+                if top_frame not in self.zombie_frames:
+                  self.zombie_frames.append(top_frame)
+      else:
+        # if there is only a global scope visible ...
+        for (k, v) in get_user_globals(top_frame).items():
+          if (type(v) in (types.FunctionType, types.MethodType) and \
+                  v not in self.closures):
+            self.globally_defined_funcs.add(v)
 
 
-        # climb up until you find '<module>', which is (hopefully) the global scope
-        top_frame = None
-        while True:
-          cur_frame = self.stack[i][0]
-          cur_name = cur_frame.f_code.co_name
-          if cur_name == '<module>':
-            break
+      # climb up until you find '<module>', which is (hopefully) the global scope
+      top_frame = None
+      while True:
+        cur_frame = self.stack[i][0]
+        cur_name = cur_frame.f_code.co_name
+        if cur_name == '<module>':
+          break
 
-          # do this check because in some cases, certain frames on the
-          # stack might NOT be tracked, so don't push a stack entry for
-          # those frames. this happens when you have a callback function
-          # in an imported module. e.g., your code:
-          #     def foo():
-          #         bar(baz)
-          #
-          #     def baz(): pass
-          #
-          # imported module code:
-          #     def bar(callback_func):
-          #         callback_func()
-          #
-          # when baz is executing, the real stack is [foo, bar, baz] but
-          # bar is in imported module code, so pg_logger doesn't trace
-          # it, and it doesn't show up in frame_ordered_ids. thus, the
-          # stack to render should only be [foo, baz].
-          if cur_frame in self.frame_ordered_ids:
-            encoded_stack_locals.append(create_encoded_stack_entry(cur_frame))
-            if not top_frame:
-                top_frame = cur_frame
-          i -= 1
+        # do this check because in some cases, certain frames on the
+        # stack might NOT be tracked, so don't push a stack entry for
+        # those frames. this happens when you have a callback function
+        # in an imported module. e.g., your code:
+        #     def foo():
+        #         bar(baz)
+        #
+        #     def baz(): pass
+        #
+        # imported module code:
+        #     def bar(callback_func):
+        #         callback_func()
+        #
+        # when baz is executing, the real stack is [foo, bar, baz] but
+        # bar is in imported module code, so pg_logger doesn't trace
+        # it, and it doesn't show up in frame_ordered_ids. thus, the
+        # stack to render should only be [foo, baz].
+        if cur_frame in self.frame_ordered_ids:
+          encoded_stack_locals.append(create_encoded_stack_entry(cur_frame))
+          if not top_frame:
+              top_frame = cur_frame
+        i -= 1
 
-        zombie_encoded_stack_locals = [create_encoded_stack_entry(e) for e in zombie_frames_to_render]
-
-
-        # encode in a JSON-friendly format now, in order to prevent ill
-        # effects of aliasing later down the line ...
-        encoded_globals = {}
-        cur_globals_dict = get_user_globals(tos[0], at_global_scope=(self.curindex <= 1))
-        for (k, v) in cur_globals_dict.items():
-          if self.should_hide_var(k):
-            continue
-
-          encoded_val = self.encoder.encode(v, self.get_parent_of_function)
-          encoded_globals[k] = encoded_val
-
-          if k not in self.all_globals_in_order:
-            self.all_globals_in_order.append(k)
-
-        # filter out globals that don't exist at this execution point
-        # (because they've been, say, deleted with 'del')
-        ordered_globals = [e for e in self.all_globals_in_order if e in encoded_globals]
-        assert len(ordered_globals) == len(encoded_globals)
+      zombie_encoded_stack_locals = [create_encoded_stack_entry(e) for e in zombie_frames_to_render]
 
 
-        # merge zombie_encoded_stack_locals and encoded_stack_locals
-        # into one master ordered list using some simple rules for
-        # making it look aesthetically pretty
-        stack_to_render = [];
+      # encode in a JSON-friendly format now, in order to prevent ill
+      # effects of aliasing later down the line ...
+      encoded_globals = {}
+      cur_globals_dict = get_user_globals(tos[0], at_global_scope=(self.curindex <= 1))
+      for (k, v) in cur_globals_dict.items():
+        if self.should_hide_var(k):
+          continue
 
-        # first push all regular stack entries
-        if encoded_stack_locals:
-          for e in encoded_stack_locals:
-            e['is_zombie'] = False
-            e['is_highlighted'] = False
-            stack_to_render.append(e)
+        encoded_val = self.encoder.encode(v, self.get_parent_of_function)
+        encoded_globals[k] = encoded_val
 
-          # highlight the top-most active stack entry
-          stack_to_render[0]['is_highlighted'] = True
+        if k not in self.all_globals_in_order:
+          self.all_globals_in_order.append(k)
+
+      # filter out globals that don't exist at this execution point
+      # (because they've been, say, deleted with 'del')
+      ordered_globals = [e for e in self.all_globals_in_order if e in encoded_globals]
+      assert len(ordered_globals) == len(encoded_globals)
 
 
-        # now push all zombie stack entries
-        for e in zombie_encoded_stack_locals:
-          # don't display return value for zombie frames
-          # TODO: reconsider ...
-          '''
+      # merge zombie_encoded_stack_locals and encoded_stack_locals
+      # into one master ordered list using some simple rules for
+      # making it look aesthetically pretty
+      stack_to_render = [];
+
+      # first push all regular stack entries
+      if encoded_stack_locals:
+        for e in encoded_stack_locals:
+          e['is_zombie'] = False
+          e['is_highlighted'] = False
+          stack_to_render.append(e)
+
+        # highlight the top-most active stack entry
+        stack_to_render[0]['is_highlighted'] = True
+
+
+      # now push all zombie stack entries
+      for e in zombie_encoded_stack_locals:
+        # don't display return value for zombie frames
+        # TODO: reconsider ...
+        '''
           try:
             e['ordered_varnames'].remove('__return__')
           except ValueError:
             pass
           '''
 
-          e['is_zombie'] = True
-          e['is_highlighted'] = False # never highlight zombie entries
+        e['is_zombie'] = True
+        e['is_highlighted'] = False # never highlight zombie entries
 
-          stack_to_render.append(e)
+        stack_to_render.append(e)
 
-        # now sort by frame_id since that sorts frames in "chronological
-        # order" based on the order they were invoked
-        stack_to_render.sort(key=lambda e: e['frame_id'])
-
-
-
-        # create a unique hash for this stack entry, so that the
-        # frontend can uniquely identify it when doing incremental
-        # rendering. the strategy is to use a frankenstein-like mix of the
-        # relevant fields to properly disambiguate closures and recursive
-        # calls to the same function
-        for e in stack_to_render:
-          hash_str = e['func_name']
-          # frame_id is UNIQUE, so it can disambiguate recursive calls
-          hash_str += '_f' + str(e['frame_id'])
-
-          # needed to refresh GUI display ...
-          if e['is_parent']:
-            hash_str += '_p'
-
-          # TODO: this is no longer needed, right? (since frame_id is unique)
-          #if e['parent_frame_id_list']:
-          #  hash_str += '_p' + '_'.join([str(i) for i in e['parent_frame_id_list']])
-          if e['is_zombie']:
-            hash_str += '_z'
-
-          e['unique_hash'] = hash_str
+      # now sort by frame_id since that sorts frames in "chronological
+      # order" based on the order they were invoked
+      stack_to_render.sort(key=lambda e: e['frame_id'])
 
 
-        # handle probe_exprs *before* encoding the heap with self.encoder.get_heap
-        encoded_probe_vals = {}
-        if self.probe_exprs:
-            if top_frame: # are we in a function call?
-                top_frame_locals = get_user_locals(top_frame)
-            else:
-                top_frame_locals = {}
-            for e in self.probe_exprs:
-                try:
-                    # evaluate it with globals + locals of the top frame ...
-                    probe_val = eval(e, cur_globals_dict, top_frame_locals)
-                    encoded_probe_vals[e] = self.encoder.encode(probe_val, self.get_parent_of_function)
-                except:
-                    pass # don't encode the value if there's been an error
 
-        if self.show_only_outputs:
-          trace_entry = dict(line=lineno,
-                             event=event_type,
-                             func_name=tos[0].f_code.co_name,
-                             globals={},
-                             ordered_globals=[],
-                             stack_to_render=[],
-                             heap={},
-                             stdout=self.get_user_stdout())
-        else:
-          trace_entry = dict(line=lineno,
-                             event=event_type,
-                             func_name=tos[0].f_code.co_name,
-                             globals=encoded_globals,
-                             ordered_globals=ordered_globals,
-                             stack_to_render=stack_to_render,
-                             heap=self.encoder.get_heap(),
-                             stdout=self.get_user_stdout())
-          if encoded_probe_vals:
-            trace_entry['probe_exprs'] = encoded_probe_vals
+      # create a unique hash for this stack entry, so that the
+      # frontend can uniquely identify it when doing incremental
+      # rendering. the strategy is to use a frankenstein-like mix of the
+      # relevant fields to properly disambiguate closures and recursive
+      # calls to the same function
+      for e in stack_to_render:
+        hash_str = e['func_name']
+        # frame_id is UNIQUE, so it can disambiguate recursive calls
+        hash_str += '_f' + str(e['frame_id'])
 
-        # optional column numbers for greater precision
-        # (only relevant in Py2crazy, a hacked CPython that supports column numbers)
-        if self.crazy_mode:
-          # at the very least, grab the column number
-          trace_entry['column'] = frame.f_colno
+        # needed to refresh GUI display ...
+        if e['is_parent']:
+          hash_str += '_p'
 
-          # now try to find start_col and extent
-          # (-1 is an invalid instruction index)
-          if frame.f_lasti >= 0:
-            key = (frame.f_code.co_code, frame.f_lineno, frame.f_colno,frame.f_lasti)
-            if key in self.bytecode_map:
-              v = self.bytecode_map[key]
-              trace_entry['expr_start_col'] = v.start_col
-              trace_entry['expr_width'] = v.extent
-              trace_entry['opcode'] = v.opcode
+        # TODO: this is no longer needed, right? (since frame_id is unique)
+        #if e['parent_frame_id_list']:
+        #  hash_str += '_p' + '_'.join([str(i) for i in e['parent_frame_id_list']])
+        if e['is_zombie']:
+          hash_str += '_z'
 
-        # set a 'custom_module_name' field if we're executing in a module
-        # that's not the __main__ script:
-        if topframe_module != "__main__":
-          trace_entry['custom_module_name'] = topframe_module
+        e['unique_hash'] = hash_str
+
+
+      # handle probe_exprs *before* encoding the heap with self.encoder.get_heap
+      encoded_probe_vals = {}
+      if self.probe_exprs:
+        top_frame_locals = get_user_locals(top_frame) if top_frame else {}
+        for e in self.probe_exprs:
+            try:
+                # evaluate it with globals + locals of the top frame ...
+                probe_val = eval(e, cur_globals_dict, top_frame_locals)
+                encoded_probe_vals[e] = self.encoder.encode(probe_val, self.get_parent_of_function)
+            except:
+                pass # don't encode the value if there's been an error
+
+      if self.show_only_outputs:
+        trace_entry = dict(line=lineno,
+                           event=event_type,
+                           func_name=tos[0].f_code.co_name,
+                           globals={},
+                           ordered_globals=[],
+                           stack_to_render=[],
+                           heap={},
+                           stdout=self.get_user_stdout())
+      else:
+        trace_entry = dict(line=lineno,
+                           event=event_type,
+                           func_name=tos[0].f_code.co_name,
+                           globals=encoded_globals,
+                           ordered_globals=ordered_globals,
+                           stack_to_render=stack_to_render,
+                           heap=self.encoder.get_heap(),
+                           stdout=self.get_user_stdout())
+        if encoded_probe_vals:
+          trace_entry['probe_exprs'] = encoded_probe_vals
+
+      # optional column numbers for greater precision
+      # (only relevant in Py2crazy, a hacked CPython that supports column numbers)
+      if self.crazy_mode:
+        # at the very least, grab the column number
+        trace_entry['column'] = frame.f_colno
+
+        # now try to find start_col and extent
+        # (-1 is an invalid instruction index)
+        if frame.f_lasti >= 0:
+          key = (frame.f_code.co_code, frame.f_lineno, frame.f_colno,frame.f_lasti)
+          if key in self.bytecode_map:
+            v = self.bytecode_map[key]
+            trace_entry['expr_start_col'] = v.start_col
+            trace_entry['expr_width'] = v.extent
+            trace_entry['opcode'] = v.opcode
+
+      # set a 'custom_module_name' field if we're executing in a module
+      # that's not the __main__ script:
+      if topframe_module != "__main__":
+        trace_entry['custom_module_name'] = topframe_module
 
         # if there's an exception, then record its info:
+      if event_type == 'exception':
+        # always check in f_locals
+        exc = frame.f_locals['__exception__']
+        trace_entry['exception_msg'] = f'{exc[0].__name__}: {str(exc[1])}'
+
+
+      # append to the trace only the breakpoint line and the next
+      # executed line, so that if you set only ONE breakpoint, OPT shows
+      # the state before and after that line gets executed.
+      append_to_trace = True
+      if self.breakpoints:
+        if (lineno not in self.breakpoints
+            and self.prev_lineno not in self.breakpoints):
+          append_to_trace = False
+
+        # TRICKY -- however, if there's an exception, then ALWAYS
+        # append it to the trace, so that the error can be displayed
         if event_type == 'exception':
-          # always check in f_locals
-          exc = frame.f_locals['__exception__']
-          trace_entry['exception_msg'] = exc[0].__name__ + ': ' + str(exc[1])
+          append_to_trace = True
+
+      self.prev_lineno = lineno
+
+      if append_to_trace:
+        self.trace.append(trace_entry)
 
 
-        # append to the trace only the breakpoint line and the next
-        # executed line, so that if you set only ONE breakpoint, OPT shows
-        # the state before and after that line gets executed.
-        append_to_trace = True
-        if self.breakpoints:
-          if not ((lineno in self.breakpoints) or (self.prev_lineno in self.breakpoints)):
-            append_to_trace = False
-
-          # TRICKY -- however, if there's an exception, then ALWAYS
-          # append it to the trace, so that the error can be displayed
-          if event_type == 'exception':
-            append_to_trace = True
-
-        self.prev_lineno = lineno
-
-        if append_to_trace:
-          self.trace.append(trace_entry)
-
-
-        # sanity check to make sure the state of the world at a 'call' instruction
-        # is identical to that at the instruction immediately following it ...
-        '''
+      # sanity check to make sure the state of the world at a 'call' instruction
+      # is identical to that at the instruction immediately following it ...
+      '''
         if len(self.trace) > 1:
           cur = self.trace[-1]
           prev = self.trace[-2]
@@ -1329,11 +1301,16 @@ class PGLogger(bdb.Bdb):
         '''
 
 
-        if len(self.trace) >= MAX_EXECUTED_LINES:
-          self.trace.append(dict(event='instruction_limit_reached', exception_msg='Stopped after running ' + str(MAX_EXECUTED_LINES) + ' steps. Please shorten your code,\nsince Python Tutor is not designed to handle long-running code.'))
-          self.force_terminate()
+      if len(self.trace) >= MAX_EXECUTED_LINES:
+        self.trace.append(
+            dict(
+                event='instruction_limit_reached',
+                exception_msg=f'Stopped after running {str(MAX_EXECUTED_LINES)}' +
+                ' steps. Please shorten your code,\nsince Python Tutor is not designed to handle long-running code.',
+            ))
+        self.force_terminate()
 
-        self.forget()
+      self.forget()
 
 
     def _runscript(self, script_str):

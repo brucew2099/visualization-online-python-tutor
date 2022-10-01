@@ -3,7 +3,7 @@ import sys
 
 def _print(*args):
     for arg in args:
-        sys.stdout.write('%s '%arg)
+        sys.stdout.write(f'{arg} ')
     sys.stdout.write('\n')
 
 if sys.version.startswith('3'):

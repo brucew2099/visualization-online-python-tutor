@@ -115,12 +115,12 @@ def diff_test_output(test_name):
   golden_s_filtered = filter_output(golden_s)
   out_s_filtered = filter_output(out_s)
 
-  # use system diff since difflib is SLOW AS HECK
-  golden_filtered_f = open('/tmp/golden.trace', 'w')
-  out_filtered_f = open('/tmp/out.trace', 'w')
-  print >> golden_filtered_f, golden_s_filtered
-  print >> out_filtered_f, out_s_filtered
-  golden_filtered_f.close()
+  with open('/tmp/golden.trace', 'w') as golden_filtered_f:
+    out_filtered_f = open('/tmp/out.trace', 'w')
+    (base, ext) = os.path.splitext(test_name)
+
+    (base, ext) = os.path.splitext(test_name)
+
   out_filtered_f.close()
   os.system('diff -ur /tmp/out.trace /tmp/golden.trace')
 

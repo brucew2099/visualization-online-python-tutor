@@ -1,31 +1,30 @@
 coding = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-ecoding = coding + '-.'
-codeset =  {
+ecoding = f'{coding}-.'
+codeset = {
     'simple': {
         'coding': coding,
-        'max_value':  61,
+        'max_value': 61,
         'char': ',',
         'dchar': '',
         'none': '_',
-        'value': lambda x: coding[x]
+        'value': lambda x: coding[x],
     },
     'text': {
         'coding': '',
-        'max_value':  100,
+        'max_value': 100,
         'none': '-1',
         'char': '|',
         'dchar': ',',
-        'value': lambda x: '%.1f' % float(x)
+        'value': lambda x: '%.1f' % float(x),
     },
     'extended': {
-        'coding':  ecoding,
-        'max_value':  4095,
-        'none':  '__',
+        'coding': ecoding,
+        'max_value': 4095,
+        'none': '__',
         'dchar': '',
         'char': ',',
-        'value': lambda x: '%s%s' % \
-             (ecoding[int(float(x) / 64)], ecoding[int(x % 64)])
-    }
+        'value': lambda x: f'{ecoding[int(float(x) / 64)]}{ecoding[int(x % 64)]}',
+    },
 }
 
 class Encoder:
@@ -36,23 +35,18 @@ class Encoder:
         self.series = series or ''
         if encoding is None:
             encoding = 'text'
-        assert(encoding in ('simple','text','extended')),\
-            'Unknown encoding: %s'%encoding
+        assert encoding in (
+            'simple',
+            'text',
+            'extended',
+        ), f'Unknown encoding: {encoding}'
+
         self.encoding = encoding
         self.scale = scale
         self.codeset = codeset[encoding]
 
     def scalevalue(self, value):
         return value # one day...
-        if self.encoding != 'text' and self.scale and \
-                isinstance(value, int) or isinstance(value, float):
-            if type(self.scale) == type(()):
-                lower,upper = self.scale
-            else:
-                lower,upper = 0,float(self.scale)
-            value = int(round(float(value - lower) * \
-                            self.codeset['max_value'] / upper))
-        return min(value, self.codeset['max_value'])
 
     def encode(self,  *args, **kwargs):
         """Encode wrapper for a dataset with maximum value
@@ -61,12 +55,9 @@ class Encoder:
         Strings are ignored as ordinal encoding"""
         if isinstance(args[0], str):
             return self.encode([args[0]],**kwargs)
-        elif isinstance(args[0], int) or isinstance(args[0], float):
+        elif isinstance(args[0], (int, float)):
             return self.encode([[args[0]]],**kwargs)
-        if len(args)>1:
-            dataset = args
-        else:
-            dataset = args[0]
+        dataset = args if len(args)>1 else args[0]
         typemap = list(map(type,dataset))
         code = self.encoding[0]
         if type('') in typemap:
@@ -80,9 +71,9 @@ class Encoder:
                 data = self.encodedata(dataset)
             except ValueError:
                 data = self.encodedata(','.join(map(unicode,dataset)))
-        if not '.' in data and code == 't':
+        if '.' not in data and code == 't':
             code = 'e'
-        return '%s%s:%s'%(code,self.series,data)
+        return f'{code}{self.series}:{data}'
 
     def encodedata(self, data):
         sub_data = []
@@ -96,7 +87,7 @@ class Encoder:
                 try:
                     sub_data.append(self.codeset['value'](self.scalevalue(value)))
                 except:
-                    raise ValueError('cannot encode value: %s'%value)
+                    raise ValueError(f'cannot encode value: {value}')
         return self.codeset['dchar'].join(sub_data)
 
     def decode(self, astr):
@@ -104,9 +95,7 @@ class Encoder:
         dec_data = []
         for data in astr[2:].split(self.codeset['char']):
             sub_data = []
-            if e == 't':
-                sub_data.extend(map(float, data.split(',')))
-            elif e == 'e':
+            if e == 'e':
                 flag = 0
                 index = self.codeset['coding'].index
                 for i in range(len(data)):
@@ -117,6 +106,8 @@ class Encoder:
                     else: flag = 0
             elif e == 's':
                 sub_data.extend(map(self.codeset['coding'].index, data))
+            elif e == 't':
+                sub_data.extend(map(float, data.split(',')))
             dec_data.append(sub_data)
         return dec_data
 

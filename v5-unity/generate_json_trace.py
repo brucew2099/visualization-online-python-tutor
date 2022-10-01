@@ -12,22 +12,13 @@ json.encoder.FLOAT_REPR = lambda f: ('%.3f' % f)
 
 def json_finalizer(input_code, output_trace):
   ret = dict(code=input_code, trace=output_trace)
-  # sort_keys=True leads to printing in DETERMINISTIC order, but might
-  # screw up some old tests ... however, there is STILL non-determinism
-  # in Python 3.3 tests, ugh!
-  #
-  # TODO: for Python 3.6, think about reinstating sort_keys=True as a
-  # command-line option for tests only? maybe don't activate it for reals
-  # since that might falsely give users the impression that object/dict keys
-  # are always sorted
-  json_output = json.dumps(ret, indent=INDENT_LEVEL)
-  return json_output
+  return json.dumps(ret, indent=INDENT_LEVEL)
 
 def js_var_finalizer(input_code, output_trace):
   global JS_VARNAME
   ret = dict(code=input_code, trace=output_trace)
   json_output = json.dumps(ret, indent=None)
-  return "var %s = %s;" % (JS_VARNAME, json_output)
+  return f"var {JS_VARNAME} = {json_output};"
 
 parser = OptionParser(usage="Generate JSON trace for pytutor")
 parser.add_option('-c', '--cumulative', default=False, action='store_true',
@@ -57,10 +48,7 @@ if options.usercode:
   if options.probe_exprs_json:
     probe_exprs = json.loads(options.probe_exprs_json)
 
-  allow_all_modules = False
-  if options.allmodules:
-    allow_all_modules = True
-
+  allow_all_modules = bool(options.allmodules)
   print(pg_logger.exec_script_str_local(options.usercode,
                                         options.raw_input_lst_json,
                                         options.cumulative,

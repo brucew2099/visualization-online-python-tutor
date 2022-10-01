@@ -14,7 +14,7 @@ class Staff601:
       self.salary = salary
 
     def salutation(self):
-        return self.role + ' ' + self.name
+        return f'{self.role} {self.name}'
 
 pat = Staff601('Pat', 'Professor', 60, 100000)
 print pat.salutation()
